@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Muscu PPL">
+<meta name="theme-color" content="#111814">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<title>Muscu PPL</title>
+<style>
+/* =====================================================================
+   MUSCU PPL — appli de suivi d'entraînement (un seul fichier)
+   Les données sont stockées sur le téléphone (localStorage).
+   Couleurs modifiables ici :
+   ===================================================================== */
+:root{
+  --bg:#111814; --card:#1b2520; --card2:#223029; --line:#2e3d35;
+  --text:#eef3f0; --muted:#94a89c; --accent:#3ecf8e; --accent2:#2e6b4f;
+  --warn:#f5c04e; --bad:#ff6b6b; --good:#3ecf8e; --gold:#ffd166;
+  --radius:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;font-size:16px}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:20;background:rgba(17,24,20,.94);backdrop-filter:blur(8px);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
+header h1{margin:0;font-size:20px;font-weight:700}
+header .sub{color:var(--muted);font-size:13px;margin-top:2px}
+main{padding:12px 12px 24px;max-width:720px;margin:0 auto}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;background:#0c120f;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;color:var(--muted);padding:9px 0 8px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button .ic{font-size:21px;line-height:1}
+nav button.on{color:var(--accent)}
+.card{background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:12px;border:1px solid var(--line)}
+.card h2{margin:0 0 8px;font-size:17px}
+.card h3{margin:0 0 6px;font-size:15px}
+.muted{color:var(--muted)} .small{font-size:13px} .tiny{font-size:11px}
+.row{display:flex;gap:8px;align-items:center} .wrap{flex-wrap:wrap} .grow{flex:1} .between{justify-content:space-between}
+.btn{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:11px;padding:11px 14px;font-size:15px;font-weight:600}
+.btn.primary{background:var(--accent);color:#06140d;border-color:var(--accent)}
+.btn.danger{background:transparent;color:var(--bad);border-color:#5a2b2b}
+.btn.ghost{background:transparent}
+.btn.sm{padding:7px 10px;font-size:13px;border-radius:9px}
+.btn.block{width:100%;display:block}
+.btn:active{transform:scale(.97)}
+input,select,textarea{background:#0f1612;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:16px;width:100%;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent2);border-color:var(--accent)}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+.chip{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;background:var(--card2);border:1px solid var(--line);white-space:nowrap}
+.chip.good{background:rgba(62,207,142,.15);border-color:rgba(62,207,142,.4);color:var(--good)}
+.chip.warn{background:rgba(245,192,78,.13);border-color:rgba(245,192,78,.4);color:var(--warn)}
+.chip.bad{background:rgba(255,107,107,.13);border-color:rgba(255,107,107,.4);color:var(--bad)}
+.chip.gold{background:rgba(255,209,102,.15);border-color:rgba(255,209,102,.5);color:var(--gold)}
+.tip{background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);color:var(--accent);border-radius:10px;padding:7px 10px;font-weight:600;font-size:14px;margin:8px 0}
+.sets{width:100%;border-collapse:separate;border-spacing:0 6px;margin-top:4px}
+.sets th{font-size:11px;color:var(--muted);font-weight:500;text-align:center}
+.sets td{text-align:center;vertical-align:middle}
+.sets td:first-child{width:30px;color:var(--muted);font-weight:600}
+.sets input{text-align:center;padding:10px 4px;font-size:18px;font-weight:600}
+.sets .done input{background:rgba(62,207,142,.12);border-color:rgba(62,207,142,.45)}
+.check{width:46px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--muted);font-size:20px}
+.check.on{background:var(--accent);color:#06140d;border-color:var(--accent)}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px}
+.kpi .v{font-size:24px;font-weight:800;color:var(--accent)}
+.kpi .l{font-size:12px;color:var(--muted)}
+.bar{height:10px;border-radius:6px;background:#0f1612;overflow:hidden;position:relative}
+.bar>div{height:100%;border-radius:6px}
+.bar .tgt{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff6}
+.list-item{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line)}
+.list-item:last-child{border-bottom:0}
+canvas{width:100%;display:block}
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+.tabs button{flex:none;background:var(--card);color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:8px 14px;font-size:14px}
+.tabs button.on{background:var(--accent2);color:#fff;border-color:var(--accent)}
+#timer{position:fixed;left:10px;right:10px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:40;background:#0b3a26;border:1px solid var(--accent);border-radius:16px;padding:10px 14px;display:none;align-items:center;gap:10px;box-shadow:0 8px 24px #0008}
+#timer .t{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;flex:1}
+#timer.done{background:#5a1f1f;border-color:var(--bad)}
+.modal-bg{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--card);width:100%;max-width:720px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom));border:1px solid var(--line)}
+.modal h2{margin:0 0 10px;font-size:18px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+table.hist{width:100%;border-collapse:collapse;font-size:13px}
+table.hist td,table.hist th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+table.hist th{color:var(--muted);font-weight:500}
+.toast{position:fixed;top:calc(14px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:var(--accent);color:#06140d;font-weight:700;padding:10px 16px;border-radius:12px;z-index:60;box-shadow:0 6px 20px #0007}
+.empty{text-align:center;color:var(--muted);padding:26px 10px}
+.exhead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.exname{font-weight:700;font-size:16px}
+.collapsed .body{display:none}
+details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:6px}
+.legend{display:flex;gap:12px;font-size:12px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><h1 id="title">Muscu PPL</h1><div class="sub" id="subtitle"></div></header>
+<main id="view"></main>
+<div id="timer"><div><div class="tiny muted">Repos</div><div class="t" id="timerT">0:00</div></div>
+  <button class="btn sm" onclick="Timer.add(-15)">−15</button><button class="btn sm" onclick="Timer.add(15)">+15</button><button class="btn sm" onclick="Timer.stop()">✕</button></div>
+<nav id="nav"></nav>
+
+<script>
+"use strict";
+/* =====================================================================
+   1. DONNÉES PAR DÉFAUT (modifiables ensuite dans l'appli)
+   ===================================================================== */
+const MUSCLES = ["Pectoraux","Deltoïde antérieur","Deltoïde latéral","Deltoïde postérieur","Dos","Trapèzes","Biceps","Avant-bras","Triceps","Quadriceps","Ischios","Fessiers","Adducteurs","Abducteurs","Abdos","Mollets"];
+
+// [nom, muscle principal, muscle secondaire, portion ciblée, incrément kg]
+const DEFAULT_EXERCISES = [
+ ["Développé couché Smith","Pectoraux","Triceps","Pec moyen (sternal)",2.5],
+ ["Développé couché haltères","Pectoraux","Triceps","Pec moyen (sternal)",2],
+ ["Développé incliné haltères","Pectoraux","Deltoïde antérieur","Pec haut (claviculaire)",2],
+ ["Développé incliné Smith","Pectoraux","Deltoïde antérieur","Pec haut (claviculaire)",2.5],
+ ["Développé incliné machine","Pectoraux","Deltoïde antérieur","Pec haut (claviculaire)",2.5],
+ ["Écartés poulie haute vers basse","Pectoraux","","Pec bas (abdominal)",1.25],
+ ["Écartés poulie basse vers haute","Pectoraux","Deltoïde antérieur","Pec haut (claviculaire)",1.25],
+ ["Pec deck","Pectoraux","","Pec moyen et bas",2.5],
+ ["Écartés haltères banc incliné","Pectoraux","","Pec haut (claviculaire)",2],
+ ["Développé épaules machine","Deltoïde antérieur","Triceps","Deltoïde antérieur",2.5],
+ ["Développé épaules haltères assis","Deltoïde antérieur","Triceps","Deltoïde antérieur",2],
+ ["Élévations latérales poulie","Deltoïde latéral","","Deltoïde latéral",1.25],
+ ["Élévations latérales haltères","Deltoïde latéral","","Deltoïde latéral",1],
+ ["Élévations latérales machine","Deltoïde latéral","","Deltoïde latéral",2.5],
+ ["Extension triceps overhead poulie","Triceps","","Longue portion",1.25],
+ ["Extension nuque haltère deux mains","Triceps","","Longue portion",2],
+ ["Extension nuque unilatérale haltère","Triceps","","Longue portion",1],
+ ["Pushdown corde","Triceps","","Vaste latéral",1.25],
+ ["Pushdown unilatéral prise supination","Triceps","","Vaste médial",1.25],
+ ["Dips machine assis","Triceps","Pectoraux","Vastes latéral et médial",2.5],
+ ["Kickback haltère","Triceps","","Vastes latéral et médial",1],
+ ["Tirage vertical prise neutre serrée","Dos","Biceps","Grand dorsal",2.5],
+ ["Tirage vertical prise large","Dos","Biceps","Grand dorsal + grand rond",2.5],
+ ["Tractions (poids du corps)","Dos","Biceps","Grand dorsal",0],
+ ["Tirage horizontal coudes serrés","Dos","Biceps","Grand dorsal + milieu du dos",2.5],
+ ["Rowing haltère unilatéral","Dos","Biceps","Grand dorsal",2],
+ ["Pull-over poulie","Dos","","Grand dorsal (isolation)",1.25],
+ ["Pull-over haltère","Dos","Pectoraux","Grand dorsal (isolation)",2],
+ ["Face pull","Deltoïde postérieur","Trapèzes","Deltoïde postérieur + coiffe",1.25],
+ ["Oiseau haltères buste appuyé","Deltoïde postérieur","","Deltoïde postérieur",1],
+ ["Rowing T poitrine appuyée prise large","Dos","Deltoïde postérieur","Trapèzes moyens, rhomboïdes",2.5],
+ ["Rowing haltères buste appuyé","Dos","Deltoïde postérieur","Haut du dos",2],
+ ["Reverse pec deck","Deltoïde postérieur","","Deltoïde postérieur",2.5],
+ ["Shrugs haltères","Trapèzes","","Trapèze supérieur",2],
+ ["Curl incliné haltères","Biceps","","Longue portion",1],
+ ["Curl haltères debout","Biceps","","Courte + longue portion",1],
+ ["Curl marteau","Biceps","Avant-bras","Brachial",1],
+ ["Curl pupitre","Biceps","","Courte portion",1.25],
+ ["Spider curl","Biceps","","Courte portion",1],
+ ["Curl inversé barre EZ","Avant-bras","Biceps","Brachio-radial",1.25],
+ ["Squat barre","Quadriceps","Fessiers","Quadriceps, fessiers",2.5],
+ ["Squat Smith","Quadriceps","Fessiers","Quadriceps, fessiers",2.5],
+ ["Hack squat","Quadriceps","Fessiers","Quadriceps",5],
+ ["Presse à cuisses","Quadriceps","Fessiers","Quadriceps",5],
+ ["Leg extension","Quadriceps","","Quadriceps (droit fémoral)",2.5],
+ ["Leg curl assis","Ischios","","Ischios (flexion du genou)",2.5],
+ ["Leg curl allongé","Ischios","","Ischios (flexion du genou)",2.5],
+ ["Soulevé de terre Smith","Ischios","Fessiers","Ischios (hanche), fessiers",2.5],
+ ["Soulevé de terre roumain haltères","Ischios","Fessiers","Ischios (hanche), fessiers",2],
+ ["Fentes bulgares","Fessiers","Quadriceps","Fessiers, quadriceps",2],
+ ["Fentes marchées haltères","Fessiers","Quadriceps","Fessiers, quadriceps",2],
+ ["Adducteurs machine","Adducteurs","","Adducteurs",2.5],
+ ["Abducteurs machine","Abducteurs","Fessiers","Moyen fessier",2.5],
+ ["Crunch poulie","Abdos","","Grand droit",2.5],
+ ["Crunch machine","Abdos","","Grand droit",2.5],
+ ["Relevés de jambes suspendu","Abdos","","Grand droit (bas)",0],
+ ["Relevés de genoux chaise romaine","Abdos","","Grand droit (bas)",0],
+ ["Mollets debout","Mollets","","Gastrocnémiens",2.5],
+ ["Mollets assis","Mollets","","Soléaire",2.5],
+];
+
+// [exercice, séries, reps min, reps max, charge de départ, repos (s), réglages machine, alternative, notes]
+const DEFAULT_PROGRAM = {
+ "Push A":[
+  ["Développé couché Smith",3,6,8,90,150,"","Développé couché haltères",""],
+  ["Développé incliné haltères",3,8,10,60,120,"","Développé incliné Smith",""],
+  ["Écartés poulie haute vers basse",2,12,15,7.5,90,"23","Pec deck",""],
+  ["Élévations latérales poulie",3,12,15,7.5,75,"12","Élévations latérales haltères",""],
+  ["Extension triceps overhead poulie",3,8,12,null,90,"16","Extension nuque haltère deux mains",""],
+  ["Pushdown corde",2,10,12,5,75,"Le plus haut","Dips machine assis",""]],
+ "Pull A":[
+  ["Tirage vertical prise neutre serrée",3,6,8,55,150,"","Tractions (poids du corps)",""],
+  ["Tirage horizontal coudes serrés",3,8,10,30,120,"","Rowing haltère unilatéral",""],
+  ["Pull-over poulie",2,12,15,null,90,"","Pull-over haltère",""],
+  ["Face pull",3,12,15,10,75,"4","Oiseau haltères buste appuyé",""],
+  ["Curl incliné haltères",3,8,10,12,90,"","Curl haltères debout",""],
+  ["Curl marteau",2,10,12,12,75,"","",""]],
+ "Legs A":[
+  ["Squat barre",3,6,8,80,180,"","Squat Smith",""],
+  ["Presse à cuisses",2,10,12,70,120,"","Hack squat",""],
+  ["Leg extension",3,10,12,45,90,"6 / 1 / 2","",""],
+  ["Leg curl assis",3,10,12,30,90,"3 / 3 / 1","Leg curl allongé",""],
+  ["Crunch poulie",2,10,15,null,60,"","Crunch machine",""]],
+ "Push B":[
+  ["Développé épaules machine",3,6,8,30,150,"Au plus haut","Développé épaules haltères assis",""],
+  ["Développé incliné Smith",3,8,10,null,120,"","Développé incliné machine",""],
+  ["Écartés poulie basse vers haute",2,12,15,null,90,"","Écartés haltères banc incliné",""],
+  ["Élévations latérales haltères",3,12,15,null,75,"","Élévations latérales machine",""],
+  ["Extension triceps overhead poulie",3,8,12,null,90,"16","Extension nuque unilatérale haltère",""],
+  ["Pushdown unilatéral prise supination",2,12,15,null,75,"","Kickback haltère",""]],
+ "Pull B":[
+  ["Tirage vertical prise large",3,8,10,null,120,"","Tractions (poids du corps)",""],
+  ["Rowing T poitrine appuyée prise large",3,8,10,null,120,"","Rowing haltères buste appuyé",""],
+  ["Reverse pec deck",3,12,15,null,75,"","Oiseau haltères buste appuyé",""],
+  ["Curl pupitre",3,8,12,null,90,"","Spider curl",""],
+  ["Curl inversé barre EZ",2,12,15,null,75,"","Curl marteau",""]],
+ "Legs B":[
+  ["Soulevé de terre Smith",3,8,10,null,150,"","Soulevé de terre roumain haltères",""],
+  ["Fentes bulgares",2,8,12,null,120,"","Fentes marchées haltères","Reps par jambe"],
+  ["Leg curl assis",3,10,15,30,90,"3 / 3 / 1","Leg curl allongé",""],
+  ["Adducteurs machine",2,12,15,25,75,"","",""],
+  ["Abducteurs machine",2,12,15,null,75,"","",""],
+  ["Relevés de jambes suspendu",2,10,15,null,60,"","Relevés de genoux chaise romaine",""]],
+};
+
+const DEFAULT_SETTINGS = {
+  objWeek:6,      // séances visées par semaine
+  stable:2,       // séances sans record -> 🟡
+  stag:4,         // séances sans record -> 🔴
+  inc:2.5,        // incrément par défaut (kg)
+  minSets:8,      // séries / muscle / semaine : minimum
+  maxSets:20,     // séries / muscle / semaine : maximum
+  secW:0.5,       // poids d'un muscle secondaire
+  rest:90,        // repos par défaut (s)
+  autoTimer:true, // lancer le minuteur en validant une série
+  sound:true,     // bip à la fin du repos
+  wake:true       // garder l'écran allumé pendant la séance
+};
+
+function defaultState(){
+  return {
+    version:1,
+    settings:{...DEFAULT_SETTINGS},
+    muscles:[...MUSCLES],
+    exercises:DEFAULT_EXERCISES.map(([name,muscle,muscle2,portion,inc])=>({name,muscle,muscle2,portion,inc})),
+    rotation:Object.keys(DEFAULT_PROGRAM),
+    program:Object.fromEntries(Object.entries(DEFAULT_PROGRAM).map(([s,list])=>[s,list.map(
+      ([ex,sets,rmin,rmax,start,rest,reglages,alt,notes])=>({ex,sets,rmin,rmax,start,rest,reglages,alt,notes}))])),
+    log:[],    // séances enregistrées
+    body:[],   // poids / mensurations
+    draft:null // séance en cours
+  };
+}
+
+/* =====================================================================
+   2. STOCKAGE
+   ===================================================================== */
+const KEY = "muscu-ppl-v1";
+let S;
+function load(){
+  try{ S = JSON.parse(localStorage.getItem(KEY)); }catch(e){ S = null; }
+  if(!S || !S.program){ S = defaultState(); save(); }
+  S.settings = {...DEFAULT_SETTINGS, ...(S.settings||{})};
+  S.body = S.body||[]; S.log = S.log||[]; S.muscles = S.muscles||[...MUSCLES];
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); }
+  catch(e){ toast("⚠️ Impossible d'enregistrer : stockage plein ?"); }
+}
+
+/* =====================================================================
+   3. OUTILS
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const wstr = w => w===null||w===undefined||w==="" ? "" : String(w).replace(".",",");
+const num = v => { if(v===""||v===null||v===undefined) return null; const n = parseFloat(String(v).replace(",",".")); return isNaN(n)?null:n; };
+const fmt = (n,d=1) => n===null||n===undefined||isNaN(n) ? "–" : (Math.round(n*10**d)/10**d).toLocaleString("fr-FR");
+const pad = n => String(n).padStart(2,"0");
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const toDate = s => { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); };
+const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fdate = (s,y=false) => { if(!s) return ""; const [Y,M,D]=s.split("-"); return y?`${D}/${M}/${Y.slice(2)}`:`${D}/${M}`; };
+const addDays = (s,n) => { const d=toDate(s); d.setDate(d.getDate()+n); return dstr(d); };
+const weekStart = s => { const d=toDate(s); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); return dstr(d); };
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const exInfo = name => S.exercises.find(e=>e.name===name) || {name,muscle:"",muscle2:"",portion:"",inc:null};
+const incFor = name => { const i = num(exInfo(name).inc); return i!==null && i>0 ? i : S.settings.inc; };
+const mmss = s => `${Math.floor(s/60)}:${pad(Math.max(0,Math.round(s%60)))}`;
+const DAYS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+
+function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2300); }
+
+/* =====================================================================
+   4. CALCULS : perf, records, statuts, conseils
+   ===================================================================== */
+// Perf = 1RM estimé (Epley) de la meilleure série. Exercice sans charge = meilleur nombre de reps.
+function perfOf(sets){
+  const valid = sets.filter(s=>num(s.r)>0);
+  if(!valid.length) return null;
+  const hasW = valid.some(s=>num(s.w)>0);
+  if(!hasW) return Math.max(...valid.map(s=>num(s.r)));
+  return Math.round(Math.max(...valid.map(s=>(num(s.w)||0)*(1+num(s.r)/30)))*10)/10;
+}
+const volOf = sets => sets.reduce((a,s)=>a+(num(s.w)||0)*(num(s.r)||0),0);
+const topW = sets => Math.max(0,...sets.filter(s=>num(s.r)>0).map(s=>num(s.w)||0));
+const minR = sets => Math.min(...sets.filter(s=>num(s.r)>0).map(s=>num(s.r)));
+function summary(sets){
+  const v = sets.filter(s=>num(s.r)>0);
+  if(!v.length) return "";
+  const w0 = num(v[0].w)||0;
+  if(v.every(s=>(num(s.w)||0)===w0)) return (w0?fmt(w0,2)+" kg × ":"")+v.map(s=>s.r).join(" / ");
+  return v.map(s=>fmt(num(s.w)||0,2)+"×"+s.r).join(" / ");
+}
+const sortedLog = () => [...S.log].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.created||0)-(b.created||0));
+
+// Historique complet d'un exercice, avec records
+let _histCache = null;
+function invalidate(){ _histCache = null; }
+function allHist(){
+  if(_histCache) return _histCache;
+  const map = {};
+  for(const s of sortedLog()){
+    for(const e of s.entries){
+      const p = perfOf(e.sets); if(p===null) continue;
+      (map[e.ex] = map[e.ex]||[]).push({date:s.date, session:s.session, sid:s.id, sets:e.sets, perf:p, vol:volOf(e.sets), top:topW(e.sets), minr:minR(e.sets), rir:e.rir, notes:e.notes});
+    }
+  }
+  for(const ex in map){
+    const h = map[ex];
+    h.forEach((x,i)=>{
+      const before = h.filter(y=>y.date<x.date);
+      const best = before.length ? Math.max(...before.map(y=>y.perf)) : null;
+      x.rec = best===null ? "ref" : (x.perf>best ? "pr" : "");
+    });
+  }
+  return (_histCache = map);
+}
+const hist = ex => allHist()[ex] || [];
+
+// Statut : 0 = pas assez de données, 1 = progression, 2 = stable, 3 = stagnation
+function statusOf(ex){
+  const h = hist(ex);
+  if(h.length<2) return {code:0, since:null, h};
+  let lastRec = null; h.forEach(x=>{ if(x.rec) lastRec = x.date; });
+  const since = h.filter(x=>x.date>lastRec).length;
+  const best = Math.max(...h.map(x=>x.perf));
+  const code = since>=S.settings.stag ? 3 : since>=S.settings.stable ? 2 : 1;
+  return {code, since, lastRec, best, last:h[h.length-1], h};
+}
+const STATUS = [["⚪","Pas assez de données",""],["🟢","Progression","good"],["🟡","Stable","warn"],["🔴","Stagnation","bad"]];
+const statusChip = st => `<span class="chip ${STATUS[st.code][2]}">${STATUS[st.code][0]} ${STATUS[st.code][1]}</span>`;
+
+// Conseil de surcharge progressive (double progression)
+function advice(line){
+  const h = hist(line.ex);
+  if(!h.length){
+    return line.start ? {txt:`1ère fois : environ ${fmt(line.start,2)} kg`, w:line.start} : {txt:"1ère fois : trouve ta charge", w:null};
+  }
+  const last = h[h.length-1];
+  if(!last.top) return last.minr>=line.rmax ? {txt:"⬆️ Ajoute du lest ou ralentis le mouvement", w:null} : {txt:"➡️ +1 rep sur chaque série", w:null};
+  if(last.minr>=line.rmax){ const w=Math.round((last.top+incFor(line.ex))*100)/100; return {txt:`⬆️ Monte à ${fmt(w,2)} kg (vise ${line.rmin}+ reps)`, w, up:true}; }
+  if(last.minr<line.rmin) return {txt:`➡️ Garde ${fmt(last.top,2)} kg, vise ${line.rmin} reps partout`, w:last.top};
+  return {txt:`➡️ Garde ${fmt(last.top,2)} kg, +1 rep`, w:last.top};
+}
+
+function lastSession(){ const l=sortedLog(); return l[l.length-1]; }
+function nextSession(){
+  const last = lastSession(); const r = S.rotation;
+  if(!last || !r.includes(last.session)) return r[0];
+  return r[(r.indexOf(last.session)+1)%r.length];
+}
+
+// Séries par muscle sur une semaine (principal = 1, secondaire = secW)
+function setsByMuscle(ws){
+  const we = addDays(ws,7), res = {};
+  S.muscles.forEach(m=>res[m]=0);
+  for(const s of S.log){
+    if(s.date<ws || s.date>=we) continue;
+    for(const e of s.entries){
+      const n = e.sets.filter(x=>num(x.r)>0).length, inf = exInfo(e.ex);
+      if(inf.muscle) res[inf.muscle] = (res[inf.muscle]||0)+n;
+      if(inf.muscle2) res[inf.muscle2] = (res[inf.muscle2]||0)+n*S.settings.secW;
+    }
+  }
+  return res;
+}
+
+/* =====================================================================
+   5. GRAPHIQUES (canvas, sans librairie)
+   ===================================================================== */
+function prepCanvas(c, h){
+  const dpr = window.devicePixelRatio||1, w = c.clientWidth||300;
+  c.width = w*dpr; c.height = h*dpr; c.style.height = h+"px";
+  const ctx = c.getContext("2d"); ctx.scale(dpr,dpr); return [ctx,w,h];
+}
+function lineChart(c, series, labels, h=200){
+  const [ctx,w] = prepCanvas(c,h);
+  const all = series.flatMap(s=>s.values).filter(v=>v!==null&&v!==undefined);
+  if(!all.length){ ctx.fillStyle="#94a89c"; ctx.font="13px sans-serif"; ctx.fillText("Pas encore de données",10,h/2); return; }
+  let mn = Math.min(...all), mx = Math.max(...all); if(mn===mx){ mn-=1; mx+=1; }
+  const padv=(mx-mn)*0.1; mn-=padv; mx+=padv;
+  const L=36,R=8,T=10,B=22, n=labels.length;
+  const X=i=> L+(n<=1?(w-L-R)/2:i*(w-L-R)/(n-1)), Y=v=> T+(h-T-B)*(1-(v-mn)/(mx-mn));
+  ctx.font="10px sans-serif"; ctx.fillStyle="#94a89c"; ctx.strokeStyle="#2e3d35"; ctx.lineWidth=1;
+  for(let k=0;k<=3;k++){ const v=mn+(mx-mn)*k/3, y=Y(v); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(w-R,y); ctx.stroke(); ctx.fillText(fmt(v,0),2,y+3); }
+  const step=Math.max(1,Math.ceil(n/6));
+  labels.forEach((l,i)=>{ if((n-1-i)%step===0) ctx.fillText(l,Math.min(X(i)-12,w-30),h-6); });
+  series.forEach(s=>{
+    ctx.strokeStyle=s.color; ctx.lineWidth=s.width||2.5; ctx.beginPath(); let started=false;
+    s.values.forEach((v,i)=>{ if(v===null||v===undefined) return; if(!started){ctx.moveTo(X(i),Y(v));started=true;} else ctx.lineTo(X(i),Y(v)); });
+    ctx.stroke();
+    s.values.forEach((v,i)=>{ if(v===null||v===undefined) return; ctx.fillStyle=(s.marks&&s.marks[i])?"#ffd166":s.color; ctx.beginPath(); ctx.arc(X(i),Y(v),(s.marks&&s.marks[i])?4.5:2.5,0,7); ctx.fill(); });
+  });
+}
+function barChart(c, values, labels, color="#3ecf8e", h=170){
+  const [ctx,w] = prepCanvas(c,h);
+  const mx = Math.max(1,...values), L=36,R=6,T=10,B=22, n=values.length, bw=(w-L-R)/n;
+  ctx.font="10px sans-serif"; ctx.fillStyle="#94a89c"; ctx.strokeStyle="#2e3d35";
+  for(let k=0;k<=3;k++){ const v=mx*k/3, y=T+(h-T-B)*(1-k/3); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(w-R,y); ctx.stroke(); ctx.fillText(v>=1000?fmt(v/1000,0)+"k":fmt(v,0),2,y+3); }
+  values.forEach((v,i)=>{ const bh=(h-T-B)*v/mx; ctx.fillStyle=i===n-1?"#3ecf8e":color; ctx.fillRect(L+i*bw+bw*0.15,T+(h-T-B)-bh,bw*0.7,bh); });
+  const step=Math.max(1,Math.ceil(n/6)); ctx.fillStyle="#94a89c";
+  labels.forEach((l,i)=>{ if((n-1-i)%step===0) ctx.fillText(l,Math.min(L+i*bw,w-30),h-6); });
+}
+function spark(c, values){
+  const [ctx,w,h] = prepCanvas(c,30);
+  if(values.length<2) return;
+  const mn=Math.min(...values), mx=Math.max(...values), r=mx-mn||1;
+  ctx.strokeStyle="#3ecf8e"; ctx.lineWidth=2; ctx.beginPath();
+  values.forEach((v,i)=>{ const x=2+i*(w-4)/(values.length-1), y=h-3-(h-6)*(v-mn)/r; i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.stroke();
+}
+function drawSparks(){ document.querySelectorAll("canvas[data-spark]").forEach(c=>spark(c, hist(c.dataset.spark).slice(-15).map(x=>x.perf))); }
+
+/* =====================================================================
+   6. MINUTEUR DE REPOS
+   ===================================================================== */
+const Timer = {
+  end:0, iv:null, ac:null, beeped:false,
+  unlock(){ try{ if(!this.ac){ this.ac = new (window.AudioContext||window.webkitAudioContext)(); } if(this.ac.state==="suspended") this.ac.resume(); }catch(e){} },
+  start(sec){ this.unlock(); this.end = Date.now()+sec*1000; this.beeped=false; $("#timer").style.display="flex"; $("#timer").classList.remove("done"); clearInterval(this.iv); this.iv=setInterval(()=>this.tick(),250); this.tick(); },
+  add(s){ if(this.end){ this.end+=s*1000; this.beeped=false; $("#timer").classList.remove("done"); this.tick(); } },
+  stop(){ clearInterval(this.iv); this.end=0; $("#timer").style.display="none"; },
+  tick(){
+    const left=(this.end-Date.now())/1000;
+    $("#timerT").textContent = left>0 ? mmss(Math.ceil(left)) : "Go ! 💪";
+    if(left<=0 && !this.beeped){ this.beeped=true; $("#timer").classList.add("done"); this.beep(); setTimeout(()=>{ if(this.beeped && Date.now()-this.end>15000) this.stop(); },16000); }
+  },
+  beep(){
+    if(navigator.vibrate) navigator.vibrate([300,150,300]);
+    if(!S.settings.sound||!this.ac) return;
+    [0,0.35,0.7].forEach(t=>{ const o=this.ac.createOscillator(), g=this.ac.createGain(); o.frequency.value=880; o.connect(g); g.connect(this.ac.destination); g.gain.setValueAtTime(0.25,this.ac.currentTime+t); g.gain.exponentialRampToValueAtTime(0.001,this.ac.currentTime+t+0.25); o.start(this.ac.currentTime+t); o.stop(this.ac.currentTime+t+0.26); });
+  }
+};
+let wakeLock=null;
+async function keepAwake(on){
+  try{
+    if(on && S.settings.wake && "wakeLock" in navigator && !wakeLock){ wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release",()=>wakeLock=null); }
+    if(!on && wakeLock){ await wakeLock.release(); wakeLock=null; }
+  }catch(e){}
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible" && S.draft && view==="seance") keepAwake(true); });
+
+/* =====================================================================
+   7. NAVIGATION
+   ===================================================================== */
+const VIEWS = [["seance","🏋️","Séance"],["histo","📅","Historique"],["progres","📈","Progrès"],["programme","📝","Programme"],["plus","⚙️","Plus"]];
+let view = "seance", sub = {};
+function go(v, s){ view=v; if(s!==undefined) sub[v]=s; render(); window.scrollTo(0,0); }
+function renderNav(){ $("#nav").innerHTML = VIEWS.map(([k,ic,l])=>`<button class="${view===k?"on":""}" onclick="go('${k}')"><span class="ic">${ic}</span>${l}</button>`).join(""); }
+function setHeader(t, s=""){ $("#title").textContent=t; $("#subtitle").textContent=s; }
+function render(){
+  renderNav();
+  ({seance:vSeance, histo:vHisto, progres:vProgres, programme:vProgramme, plus:vPlus})[view]();
+  drawSparks();
+}
+
+/* =====================================================================
+   8. ÉCRAN SÉANCE
+   ===================================================================== */
+function newDraft(session, date, fromLog){
+  if(fromLog){
+    return {id:fromLog.id, date:fromLog.date, session:fromLog.session, notes:fromLog.notes||"",
+      entries:fromLog.entries.map(e=>({ex:e.ex, line:lineFor(fromLog.session,e.ex), rir:e.rir??"", notes:e.notes||"", sets:e.sets.map(s=>({w:wstr(s.w),r:s.r??"",done:true}))}))};
+  }
+  return {id:null, date:date||todayStr(), session, notes:"", entries:(S.program[session]||[]).map(l=>entryFromLine(l))};
+}
+function lineFor(session, ex){ return (S.program[session]||[]).find(l=>l.ex===ex||l.alt===ex) || {ex, sets:3, rmin:8, rmax:12, start:null, rest:S.settings.rest, reglages:"", alt:"", notes:""}; }
+function entryFromLine(l, exName){
+  const line = exName ? {...l, ex:exName} : l;
+  const a = advice(line);
+  return {ex:line.ex, line:l, rir:"", notes:"", sets:Array.from({length:l.sets||3},()=>({w:wstr(a.w),r:"",done:false}))};
+}
+function vSeance(){
+  const d = S.draft;
+  if(!d){
+    const nx = nextSession(), last = lastSession();
+    setHeader("Séance", last?`Dernière : ${last.session} le ${fdate(last.date)}`:"Bienvenue 👋");
+    $("#view").innerHTML = `
+      <div class="card"><h2>Prochaine séance</h2>
+        <div style="font-size:30px;font-weight:800;color:var(--accent);margin:4px 0 10px">${esc(nx)}</div>
+        <div class="small muted" style="margin-bottom:12px">${(S.program[nx]||[]).map(l=>esc(l.ex)).join(" · ")||"Aucun exercice"}</div>
+        <button class="btn primary block" onclick="startSession('${esc(nx)}')">▶︎ Commencer ${esc(nx)}</button></div>
+      <div class="card"><h3>Faire une autre séance</h3><div class="row wrap">
+        ${S.rotation.filter(s=>s!==nx).map(s=>`<button class="btn sm" onclick="startSession(this.dataset.s)" data-s="${esc(s)}">${esc(s)}</button>`).join("")}
+        <button class="btn sm ghost" onclick="startSession('Libre')">+ Séance libre</button></div></div>
+      ${weekCard()}`;
+    return;
+  }
+  setHeader(d.session + (d.id?" (modification)":""), `${DAYS[toDate(d.date).getDay()]} ${fdate(d.date,true)}`);
+  keepAwake(true);
+  const doneSets = d.entries.reduce((a,e)=>a+e.sets.filter(s=>s.done).length,0), totSets = d.entries.reduce((a,e)=>a+e.sets.length,0);
+  $("#view").innerHTML = `
+    <div class="card"><div class="row between"><div class="small muted">Progression de la séance</div><div class="small"><b>${doneSets}</b> / ${totSets} séries</div></div>
+      <div class="bar" style="margin-top:8px"><div style="width:${totSets?100*doneSets/totSets:0}%;background:var(--accent)"></div></div>
+      <div class="row" style="margin-top:10px"><label style="margin:0" class="grow">Date</label><input type="date" value="${d.date}" style="width:170px" onchange="S.draft.date=this.value;save();render()"></div></div>
+    ${d.entries.map((e,i)=>entryCard(e,i)).join("")}
+    <div class="row wrap" style="margin-bottom:12px"><button class="btn sm" onclick="addExercise()">+ Ajouter un exercice</button></div>
+    <div class="card"><label style="margin-top:0">Notes de séance</label><textarea rows="2" oninput="S.draft.notes=this.value;save()" placeholder="Forme, sommeil, sensations…">${esc(d.notes)}</textarea></div>
+    <button class="btn primary block" style="padding:15px;font-size:17px" onclick="finishSession()">✅ Terminer et enregistrer</button>
+    <div class="row" style="margin-top:10px"><button class="btn danger grow" onclick="cancelSession()">Abandonner</button></div>`;
+}
+function entryCard(e,i){
+  const l = e.line, h = hist(e.ex), last = h[h.length-1], a = advice({...l, ex:e.ex}), st = statusOf(e.ex), inf = exInfo(e.ex);
+  const collapsed = e.collapsed ? "collapsed" : "";
+  const allDone = e.sets.length && e.sets.every(s=>s.done);
+  return `<div class="card ${collapsed}" id="ex${i}">
+    <div class="exhead" onclick="toggleEx(${i})"><div>
+      <div class="exname">${allDone?"✅ ":""}${esc(e.ex)}</div>
+      <div class="small muted">${l.sets} × ${l.rmin}-${l.rmax} · repos ${mmss(l.rest||S.settings.rest)}${l.reglages?` · réglages : <b style="color:var(--text)">${esc(l.reglages)}</b>`:""}</div>
+      ${inf.portion?`<div class="tiny muted">${esc(inf.portion)}</div>`:""}
+    </div><div style="text-align:right">${st.code?statusChip(st):""}<div class="tiny muted" style="margin-top:4px">${e.collapsed?"▼":"▲"}</div></div></div>
+    <div class="body">
+      <div class="small muted" style="margin-top:8px">Dernière fois : ${last?`<b style="color:var(--text)">${esc(summary(last.sets))}</b> (${fdate(last.date)})`:"jamais fait"}</div>
+      <div class="tip">👉 ${esc(a.txt)}</div>
+      ${l.notes?`<div class="small" style="color:var(--warn)">📌 ${esc(l.notes)}</div>`:""}
+      <table class="sets"><tr><th>#</th><th>kg</th><th>reps</th><th></th></tr>
+      ${e.sets.map((s,j)=>`<tr class="${s.done?"done":""}"><td>${j+1}</td>
+        <td><input id="w-${i}-${j}" inputmode="decimal" value="${esc(s.w)}" placeholder="kg" onchange="setVal(${i},${j},'w',this.value)"></td>
+        <td><input id="r-${i}-${j}" inputmode="numeric" value="${esc(s.r)}" placeholder="${l.rmin}-${l.rmax}" onchange="setVal(${i},${j},'r',this.value)"></td>
+        <td><button class="check ${s.done?"on":""}" onclick="toggleSet(${i},${j})">✓</button></td></tr>`).join("")}
+      </table>
+      <div class="row wrap" style="margin-top:6px">
+        <button class="btn sm" onclick="addSet(${i})">+ série</button>
+        <button class="btn sm" onclick="delSet(${i})">− série</button>
+        <button class="btn sm" onclick="Timer.start(${l.rest||S.settings.rest})">⏱ ${mmss(l.rest||S.settings.rest)}</button>
+        ${l.alt && e.ex!==l.alt?`<button class="btn sm" onclick="swapAlt(${i})">↔︎ ${esc(l.alt)}</button>`:""}
+        ${l.alt && e.ex===l.alt?`<button class="btn sm" onclick="swapAlt(${i})">↔︎ ${esc(l.ex)}</button>`:""}
+      </div>
+      <details ${e.rir!==""||e.notes?"open":""}><summary>RIR et notes (facultatif)</summary>
+        <div class="grid2" style="margin-top:6px"><div><label>RIR dernière série</label>
+          <select onchange="S.draft.entries[${i}].rir=this.value;save()"><option value="">—</option>${[0,1,2,3,4,5].map(n=>`<option ${String(e.rir)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+          <div><label>Note</label><input value="${esc(e.notes)}" onchange="S.draft.entries[${i}].notes=this.value;save()"></div></div>
+        <button class="btn sm danger" style="margin-top:10px" onclick="removeEntry(${i})">Retirer cet exercice de la séance</button>
+      </details>
+    </div></div>`;
+}
+function startSession(s){ Timer.unlock(); S.draft = newDraft(s); save(); render(); }
+function toggleEx(i){ const e=S.draft.entries[i]; e.collapsed=!e.collapsed; save(); render(); }
+function setVal(i,j,k,v){
+  // pas de re-rendu ici : le clavier reste ouvert quand on passe d'une case à l'autre
+  const e=S.draft.entries[i]; e.sets[j][k]=v.trim();
+  if(k==="w"){ for(let n=j+1;n<e.sets.length;n++){ if(!e.sets[n].done){ e.sets[n].w=v.trim(); const el=document.getElementById(`w-${i}-${n}`); if(el) el.value=v.trim(); } } }
+  save();
+}
+function toggleSet(i,j){
+  Timer.unlock();
+  const e=S.draft.entries[i], s=e.sets[j];
+  if(!s.done && !num(s.r)){ const tgt=e.line.rmax; s.r=String(e.line.rmin===e.line.rmax?tgt:e.line.rmin); toast("Reps pré-remplies : modifie-les si besoin"); }
+  s.done=!s.done;
+  if(s.done && S.settings.autoTimer){
+    const isLast = e.sets.every(x=>x.done);
+    Timer.start(e.line.rest||S.settings.rest);
+    if(isLast){ e.collapsed=true; }
+  }
+  save(); render();
+  if(s.done){ const card=document.getElementById("ex"+i); if(card && e.collapsed){ const nx=document.getElementById("ex"+(i+1)); if(nx) nx.scrollIntoView({behavior:"smooth",block:"start"}); } }
+}
+function addSet(i){ const e=S.draft.entries[i], l=e.sets[e.sets.length-1]; e.sets.push({w:l?l.w:"",r:"",done:false}); save(); render(); }
+function delSet(i){ const e=S.draft.entries[i]; if(e.sets.length>1){ e.sets.pop(); save(); render(); } }
+function swapAlt(i){
+  const e=S.draft.entries[i], l=e.line, target = e.ex===l.alt ? l.ex : l.alt;
+  const a = advice({...l, ex:target}); e.ex=target; e.sets.forEach(s=>{ if(!s.done) s.w=wstr(a.w); }); save(); render();
+}
+function removeEntry(i){ if(confirm("Retirer cet exercice de la séance ?")){ S.draft.entries.splice(i,1); save(); render(); } }
+function addExercise(){
+  modal(`<h2>Ajouter un exercice</h2>
+    <label>Exercice</label><select id="addEx">${exOptions("")}</select>
+    <div class="grid3"><div><label>Séries</label><input id="addSets" inputmode="numeric" value="3"></div><div><label>Reps min</label><input id="addMin" inputmode="numeric" value="8"></div><div><label>Reps max</label><input id="addMax" inputmode="numeric" value="12"></div></div>
+    <div class="row" style="margin-top:14px"><button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn primary grow" onclick="doAddExercise()">Ajouter</button></div>`);
+}
+function doAddExercise(){
+  const ex=$("#addEx").value; if(!ex) return;
+  const l={ex, sets:num($("#addSets").value)||3, rmin:num($("#addMin").value)||8, rmax:num($("#addMax").value)||12, start:null, rest:S.settings.rest, reglages:"", alt:"", notes:""};
+  S.draft.entries.push(entryFromLine(l)); save(); closeModal(); render();
+}
+function finishSession(){
+  const d=S.draft;
+  const entries = d.entries.map(e=>({ex:e.ex, rir:e.rir===""?null:num(e.rir), notes:e.notes||"",
+    sets:e.sets.filter(s=>num(s.r)>0).map(s=>({w:num(s.w)||0, r:num(s.r)}))})).filter(e=>e.sets.length);
+  if(!entries.length){ if(confirm("Aucune série remplie. Abandonner la séance ?")) cancelSession(true); return; }
+  const unchecked = d.entries.reduce((a,e)=>a+e.sets.filter(s=>!s.done && num(s.r)>0).length,0);
+  const empty = d.entries.reduce((a,e)=>a+e.sets.filter(s=>!(num(s.r)>0)).length,0);
+  if(empty && !confirm(`${empty} série(s) sans reps ne seront pas enregistrées. Continuer ?`)) return;
+  const rec = {id:d.id||uid(), date:d.date, session:d.session, notes:d.notes||"", entries, created:d.id?(S.log.find(x=>x.id===d.id)||{}).created||Date.now():Date.now()};
+  S.log = S.log.filter(x=>x.id!==rec.id); S.log.push(rec); S.draft=null; invalidate(); save();
+  Timer.stop(); keepAwake(false);
+  const prs = entries.filter(e=>{ const h=hist(e.ex).filter(x=>x.sid===rec.id); return h.length && h[0].rec==="pr"; });
+  const vol = entries.reduce((a,e)=>a+volOf(e.sets),0), nsets = entries.reduce((a,e)=>a+e.sets.length,0);
+  modal(`<h2>Séance enregistrée 💪</h2>
+    <div class="kpis"><div class="kpi"><div class="v">${nsets}</div><div class="l">séries</div></div><div class="kpi"><div class="v">${fmt(vol,0)}</div><div class="l">kg soulevés</div></div></div>
+    ${prs.length?`<div class="card"><h3>★ ${prs.length} record${prs.length>1?"s":""} !</h3>${prs.map(e=>`<div class="small">${esc(e.ex)} : ${esc(summary(e.sets))}</div>`).join("")}</div>`:`<div class="muted small">Pas de record aujourd'hui, la régularité paie 😉</div>`}
+    <button class="btn primary block" style="margin-top:14px" onclick="closeModal();go('progres')">Voir mes progrès</button>
+    <button class="btn block ghost" style="margin-top:8px" onclick="closeModal();render()">Fermer</button>`);
+  render();
+}
+function cancelSession(force){
+  if(force || confirm(S.draft.id?"Annuler les modifications ?":"Abandonner la séance en cours ? Les séries saisies seront perdues.")){
+    S.draft=null; save(); Timer.stop(); keepAwake(false); render();
+  }
+}
+function weekCard(){
+  const ws=weekStart(todayStr()), n=new Set(S.log.filter(s=>s.date>=ws).map(s=>s.date)).size;
+  return `<div class="card"><div class="row between"><h3 style="margin:0">Cette semaine</h3><span class="chip ${n>=S.settings.objWeek?"good":""}">${n} / ${S.settings.objWeek} séances</span></div>
+    <div class="bar" style="margin-top:10px"><div style="width:${Math.min(100,100*n/S.settings.objWeek)}%;background:var(--accent)"></div></div></div>`;
+}
+
+/* =====================================================================
+   9. HISTORIQUE
+   ===================================================================== */
+function vHisto(){
+  setHeader("Historique", `${S.log.length} séance${S.log.length>1?"s":""} enregistrée${S.log.length>1?"s":""}`);
+  const list = sortedLog().reverse();
+  if(!list.length){ $("#view").innerHTML=`<div class="empty">Aucune séance enregistrée pour l'instant.<br><br><button class="btn primary" onclick="go('seance')">Commencer une séance</button></div>`; return; }
+  let html="", month="";
+  for(const s of list){
+    const m = s.date.slice(0,7);
+    if(m!==month){ month=m; const d=toDate(s.date); html+=`<div class="small muted" style="margin:14px 4px 6px;text-transform:capitalize">${d.toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}</div>`; }
+    const prs = s.entries.filter(e=>(hist(e.ex).find(x=>x.sid===s.id)||{}).rec==="pr").length;
+    const vol = s.entries.reduce((a,e)=>a+volOf(e.sets),0);
+    html += `<div class="card" onclick="showSession('${s.id}')"><div class="row between"><div><b>${esc(s.session)}</b> <span class="muted small">· ${DAYS[toDate(s.date).getDay()]} ${fdate(s.date)}</span></div>${prs?`<span class="chip gold">★ ${prs}</span>`:""}</div>
+      <div class="small muted" style="margin-top:4px">${s.entries.length} exercices · ${s.entries.reduce((a,e)=>a+e.sets.length,0)} séries · ${fmt(vol,0)} kg</div></div>`;
+  }
+  $("#view").innerHTML = html;
+}
+function showSession(id){
+  const s=S.log.find(x=>x.id===id); if(!s) return;
+  modal(`<h2>${esc(s.session)} · ${fdate(s.date,true)}</h2>
+    ${s.entries.map(e=>{ const h=(hist(e.ex).find(x=>x.sid===s.id)||{}); return `<div class="list-item"><div class="grow"><div><b>${esc(e.ex)}</b> ${h.rec==="pr"?'<span class="chip gold">★ record</span>':""}</div>
+      <div class="small muted">${esc(summary(e.sets))}${e.rir!==null&&e.rir!==undefined?` · RIR ${e.rir}`:""}${e.notes?` · ${esc(e.notes)}`:""}</div></div><div class="small muted">${fmt(h.perf)}</div></div>`; }).join("")}
+    ${s.notes?`<div class="small" style="margin-top:10px">📝 ${esc(s.notes)}</div>`:""}
+    <div class="row" style="margin-top:14px"><button class="btn danger grow" onclick="delSession('${s.id}')">Supprimer</button><button class="btn primary grow" onclick="editSession('${s.id}')">Modifier</button></div>
+    <button class="btn block ghost" style="margin-top:8px" onclick="closeModal()">Fermer</button>`);
+}
+function editSession(id){
+  if(S.draft && !confirm("Une séance est en cours. La remplacer par cette modification ?")) return;
+  S.draft = newDraft(null,null,S.log.find(x=>x.id===id)); save(); closeModal(); go("seance");
+}
+function delSession(id){ if(confirm("Supprimer définitivement cette séance ?")){ S.log=S.log.filter(x=>x.id!==id); invalidate(); save(); closeModal(); render(); toast("Séance supprimée"); } }
+
+/* =====================================================================
+   10. PROGRÈS
+   ===================================================================== */
+function vProgres(){
+  setHeader("Progrès");
+  const t=sub.progres||"bilan";
+  const tabs=`<div class="tabs">${[["bilan","Bilan"],["exos","Exercices"],["muscles","Muscles"]].map(([k,l])=>`<button class="${t===k?"on":""}" onclick="go('progres','${k}')">${l}</button>`).join("")}</div>`;
+  if(!S.log.length){ $("#view").innerHTML = tabs+`<div class="empty">Tes stats apparaîtront après ta première séance.</div>`; return; }
+  if(t==="bilan") return vBilan(tabs);
+  if(t==="exos") return vExos(tabs);
+  return vMuscles(tabs);
+}
+function vBilan(tabs){
+  const today=todayStr(), ws=weekStart(today), ms=today.slice(0,8)+"01";
+  const sessW=new Set(S.log.filter(s=>s.date>=ws).map(s=>s.date)).size;
+  const sessM=new Set(S.log.filter(s=>s.date>=ms).map(s=>s.date)).size;
+  const all=allHist(); let prM=0; for(const ex in all) prM+=all[ex].filter(x=>x.rec==="pr"&&x.date>=ms).length;
+  const exList=[...new Set(Object.values(S.program).flat().map(l=>l.ex))];
+  const stats=exList.map(ex=>({ex,st:statusOf(ex)}));
+  const stag=stats.filter(x=>x.st.code===3);
+  const weeks=[...Array(12)].map((_,k)=>addDays(ws,-7*(11-k)));
+  const ton=weeks.map(w=>S.log.filter(s=>s.date>=w&&s.date<addDays(w,7)).reduce((a,s)=>a+s.entries.reduce((b,e)=>b+volOf(e.sets),0),0));
+  const nses=weeks.map(w=>new Set(S.log.filter(s=>s.date>=w&&s.date<addDays(w,7)).map(s=>s.date)).size);
+  const recents=[]; for(const ex in all) all[ex].forEach(x=>{ if(x.rec==="pr") recents.push({ex,...x}); });
+  recents.sort((a,b)=>a.date<b.date?1:-1);
+  $("#view").innerHTML = tabs+`
+    <div class="kpis">
+      <div class="kpi"><div class="v">${sessW}<span class="small muted"> / ${S.settings.objWeek}</span></div><div class="l">séances cette semaine</div></div>
+      <div class="kpi"><div class="v">${sessM}</div><div class="l">séances ce mois</div></div>
+      <div class="kpi"><div class="v" style="color:var(--gold)">★ ${prM}</div><div class="l">records ce mois</div></div>
+      <div class="kpi"><div class="v" style="color:${stag.length?"var(--bad)":"var(--accent)"}">${stag.length}</div><div class="l">exercices en stagnation</div></div>
+    </div>
+    <div class="card"><h3>Tonnage par semaine (kg)</h3><canvas id="cTon"></canvas></div>
+    <div class="card"><h3>Séances par semaine</h3><canvas id="cSes"></canvas></div>
+    <div class="card"><h3>🔴 À surveiller</h3>${stag.length?stag.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}"><div class="grow"><b>${esc(x.ex)}</b><div class="small muted">${x.st.since} séances sans record · dernière perf ${fmt(x.st.last.perf)} / record ${fmt(x.st.best)}</div></div><canvas data-spark="${esc(x.ex)}" style="width:70px"></canvas></div>`).join("")
+      +`<div class="small muted" style="margin-top:8px">Pistes : vérifie sommeil et récup, fais une semaine plus légère (−1 série par exercice) ou passe à l'alternative prévue dans le programme.</div>`:`<div class="small muted">Aucune stagnation 👍</div>`}</div>
+    <div class="card"><h3>★ Derniers records</h3>${recents.slice(0,8).map(r=>`<div class="list-item"><div class="grow"><b>${esc(r.ex)}</b><div class="small muted">${esc(summary(r.sets))}</div></div><div class="small muted">${fdate(r.date)}</div></div>`).join("")||`<div class="small muted">Pas encore de record (la 1ère séance sert de référence).</div>`}</div>`;
+  barChart($("#cTon"),ton,weeks.map(w=>fdate(w)));
+  barChart($("#cSes"),nses,weeks.map(w=>fdate(w)),"#2e6b4f",130);
+}
+function vExos(tabs){
+  const exList=[...new Set([...Object.values(S.program).flat().map(l=>l.ex), ...Object.keys(allHist())])];
+  const rows=exList.map(ex=>({ex,st:statusOf(ex)})).sort((a,b)=>b.st.code-a.st.code || a.ex.localeCompare(b.ex));
+  $("#view").innerHTML = tabs+`<div class="card">${rows.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}">
+      <div class="grow"><div><b>${esc(x.ex)}</b></div><div class="small muted">${x.st.h.length} séance${x.st.h.length>1?"s":""}${x.st.code?` · record ${fmt(x.st.best)}${x.st.since?` · ${x.st.since} sans record`:""}`:""}</div><div style="margin-top:4px">${statusChip(x.st)}</div></div>
+      <canvas data-spark="${esc(x.ex)}" style="width:80px"></canvas></div>`).join("")}</div>
+    <div class="small muted" style="padding:0 4px">Perf = 1RM estimé de ta meilleure série (charge × (1 + reps/30)). 🟢 record récent · 🟡 ${S.settings.stable}+ séances sans record · 🔴 ${S.settings.stag}+ séances sans record.</div>`;
+}
+function showEx(ex){
+  const h=hist(ex), st=statusOf(ex), inf=exInfo(ex);
+  const last30=h.slice(-30);
+  modal(`<h2>${esc(ex)}</h2><div class="small muted">${esc(inf.muscle)}${inf.portion?" · "+esc(inf.portion):""}</div>
+    <div class="row wrap" style="margin:10px 0">${statusChip(st)}${st.code?`<span class="chip">Record ${fmt(st.best)}</span>`:""}<span class="chip">${h.length} séances</span></div>
+    <div class="card" style="padding:10px"><canvas id="cEx"></canvas><div class="legend"><span><i style="background:#3ecf8e"></i>Perf (1RM est.)</span><span><i style="background:#f4b183"></i>Charge max</span><span><i style="background:#ffd166"></i>Record</span></div></div>
+    <div class="card" style="padding:10px"><h3>Volume par séance (kg)</h3><canvas id="cVol"></canvas></div>
+    <table class="hist"><tr><th>Date</th><th>Séries</th><th>Perf</th><th></th></tr>
+    ${[...h].reverse().map(x=>`<tr><td>${fdate(x.date,true)}</td><td>${esc(summary(x.sets))}</td><td>${fmt(x.perf)}</td><td>${x.rec==="pr"?"★":x.rec==="ref"?"réf.":""}</td></tr>`).join("")}</table>
+    <button class="btn block" style="margin-top:14px" onclick="closeModal()">Fermer</button>`);
+  setTimeout(()=>{
+    lineChart($("#cEx"),[{values:last30.map(x=>x.top||null),color:"#f4b183",width:1.5},{values:last30.map(x=>x.perf),color:"#3ecf8e",marks:last30.map(x=>x.rec==="pr")}],last30.map(x=>fdate(x.date)),210);
+    barChart($("#cVol"),last30.map(x=>x.vol),last30.map(x=>fdate(x.date)),"#2e6b4f",130);
+  },30);
+}
+function vMuscles(tabs){
+  const ws=weekStart(todayStr()), w=sub.mweek||0, wsel=addDays(ws,-7*w);
+  const cur=setsByMuscle(wsel);
+  const avg={}; S.muscles.forEach(m=>avg[m]=0);
+  for(let k=1;k<=4;k++){ const r=setsByMuscle(addDays(ws,-7*k)); for(const m in r) avg[m]=(avg[m]||0)+r[m]/4; }
+  const mx=Math.max(S.settings.maxSets, ...Object.values(cur));
+  $("#view").innerHTML = tabs+`<div class="tabs">${[["Cette semaine",0],["Semaine dernière",1]].map(([l,k])=>`<button class="${w===k?"on":""}" onclick="sub.mweek=${k};render()">${l}</button>`).join("")}</div>
+    <div class="card"><h3>Séries par muscle</h3><div class="tiny muted" style="margin-bottom:10px">Semaine du ${fdate(wsel)} · cible ${S.settings.minSets} à ${S.settings.maxSets} séries · muscle secondaire compté ×${fmt(S.settings.secW,2)} · (moyenne 4 semaines)</div>
+    ${S.muscles.map(m=>{ const v=cur[m]||0, col=v===0?"#555":v<S.settings.minSets?"var(--warn)":v>S.settings.maxSets?"var(--bad)":"var(--good)";
+      return `<div style="margin-bottom:10px"><div class="row between small"><span>${esc(m)}</span><span><b>${fmt(v)}</b> <span class="muted tiny">(${fmt(avg[m])})</span></span></div>
+      <div class="bar"><div style="width:${100*v/mx}%;background:${col}"></div><div class="tgt" style="left:${100*S.settings.minSets/mx}%"></div></div></div>`; }).join("")}
+    <div class="tiny muted">La barre blanche = minimum visé. Vert = dans la cible, orange = en dessous, rouge = au-dessus du maximum.</div></div>`;
+}
+
+/* =====================================================================
+   11. PROGRAMME (tout est modifiable)
+   ===================================================================== */
+function vProgramme(){
+  setHeader("Programme","Touche un élément pour le modifier");
+  const t=sub.programme||"seances";
+  const tabs=`<div class="tabs">${[["seances","Séances"],["biblio","Bibliothèque"]].map(([k,l])=>`<button class="${t===k?"on":""}" onclick="go('programme','${k}')">${l}</button>`).join("")}</div>`;
+  if(t==="biblio") return vBiblio(tabs);
+  const cur = sub.prog && S.program[sub.prog] ? sub.prog : S.rotation[0];
+  $("#view").innerHTML = tabs+`
+    <div class="card"><div class="row between"><h3 style="margin:0">Rotation des séances</h3><button class="btn sm" onclick="addSessionType()">+ Séance</button></div>
+      <div class="small muted" style="margin:4px 0 8px">L'appli te propose les séances dans cet ordre.</div>
+      ${S.rotation.map((s,i)=>`<div class="list-item"><div class="grow" onclick="sub.prog=this.dataset.s;render()" data-s="${esc(s)}"><b style="color:${s===cur?"var(--accent)":"var(--text)"}">${i+1}. ${esc(s)}</b> <span class="small muted">· ${(S.program[s]||[]).length} exercices</span></div>
+        <button class="btn sm ghost" onclick="moveSession(${i},-1)">↑</button><button class="btn sm ghost" onclick="moveSession(${i},1)">↓</button><button class="btn sm ghost" onclick="editSessionType(${i})">✏️</button></div>`).join("")}
+    </div>
+    <div class="card"><div class="row between"><h2 style="margin:0">${esc(cur)}</h2><button class="btn sm primary" onclick="editLine('${esc(cur)}',-1)">+ Exercice</button></div>
+      ${(S.program[cur]||[]).map((l,i)=>`<div class="list-item"><div class="grow" onclick="editLine(this.dataset.s,${i})" data-s="${esc(cur)}">
+        <b>${esc(l.ex)}</b><div class="small muted">${l.sets} × ${l.rmin}-${l.rmax} · repos ${mmss(l.rest||S.settings.rest)}${l.reglages?" · "+esc(l.reglages):""}${l.alt?`<br>↔︎ ${esc(l.alt)}`:""}</div></div>
+        <button class="btn sm ghost" onclick="moveLine('${esc(cur)}',${i},-1)">↑</button><button class="btn sm ghost" onclick="moveLine('${esc(cur)}',${i},1)">↓</button></div>`).join("")||`<div class="small muted">Aucun exercice.</div>`}
+    </div>`;
+}
+function exOptions(sel, allowEmpty){
+  const list=[...S.exercises].sort((a,b)=>a.name.localeCompare(b.name));
+  return (allowEmpty?`<option value="">— aucune —</option>`:"")+list.map(e=>`<option ${e.name===sel?"selected":""}>${esc(e.name)}</option>`).join("");
+}
+function editLine(sess, i){
+  const l = i>=0 ? S.program[sess][i] : {ex:S.exercises[0].name,sets:3,rmin:8,rmax:12,start:null,rest:S.settings.rest,reglages:"",alt:"",notes:""};
+  modal(`<h2>${i>=0?"Modifier":"Ajouter"} · ${esc(sess)}</h2>
+    <label>Exercice</label><select id="fEx">${exOptions(l.ex)}</select>
+    <div class="small"><a href="#" style="color:var(--accent)" onclick="closeModal();go('programme','biblio');editEx(-1);return false">+ Créer un nouvel exercice</a></div>
+    <div class="grid3"><div><label>Séries</label><input id="fSets" inputmode="numeric" value="${l.sets}"></div><div><label>Reps min</label><input id="fMin" inputmode="numeric" value="${l.rmin}"></div><div><label>Reps max</label><input id="fMax" inputmode="numeric" value="${l.rmax}"></div></div>
+    <div class="grid2"><div><label>Repos (secondes)</label><input id="fRest" inputmode="numeric" value="${l.rest??S.settings.rest}"></div><div><label>Charge de départ (kg)</label><input id="fStart" inputmode="decimal" value="${l.start??""}"></div></div>
+    <label>Réglages machine</label><input id="fReg" value="${esc(l.reglages)}" placeholder="ex : siège 4, dossier 2">
+    <label>Alternative (si la machine est prise)</label><select id="fAlt">${exOptions(l.alt,true)}</select>
+    <label>Notes</label><input id="fNotes" value="${esc(l.notes)}">
+    <div class="row" style="margin-top:16px">${i>=0?`<button class="btn danger" onclick="delLine('${esc(sess)}',${i})">Supprimer</button>`:""}<button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn primary grow" onclick="saveLine('${esc(sess)}',${i})">Enregistrer</button></div>`);
+}
+function saveLine(sess,i){
+  const l={ex:$("#fEx").value, sets:Math.max(1,num($("#fSets").value)||3), rmin:num($("#fMin").value)||8, rmax:num($("#fMax").value)||12,
+    rest:num($("#fRest").value)||S.settings.rest, start:num($("#fStart").value), reglages:$("#fReg").value.trim(), alt:$("#fAlt").value, notes:$("#fNotes").value.trim()};
+  if(l.rmax<l.rmin) [l.rmin,l.rmax]=[l.rmax,l.rmin];
+  if(i>=0) S.program[sess][i]=l; else S.program[sess].push(l);
+  save(); closeModal(); render(); toast("Programme mis à jour");
+}
+function delLine(sess,i){ if(confirm("Retirer cet exercice de la séance ? (l'historique est conservé)")){ S.program[sess].splice(i,1); save(); closeModal(); render(); } }
+function moveLine(sess,i,d){ const a=S.program[sess], j=i+d; if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; save(); render(); }
+function moveSession(i,d){ const a=S.rotation, j=i+d; if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; save(); render(); }
+function addSessionType(){
+  const n=(prompt("Nom de la nouvelle séance (ex : Push C, Full body…)")||"").trim();
+  if(!n) return; if(S.program[n]){ toast("Ce nom existe déjà"); return; }
+  S.program[n]=[]; S.rotation.push(n); sub.prog=n; save(); render();
+}
+function editSessionType(i){
+  const old=S.rotation[i];
+  modal(`<h2>Séance « ${esc(old)} »</h2><label>Nom</label><input id="fSessName" value="${esc(old)}">
+    <button class="btn block" style="margin-top:10px" onclick="dupSession(${i})">Dupliquer cette séance</button>
+    <div class="row" style="margin-top:16px"><button class="btn danger" onclick="delSessionType(${i})">Supprimer</button><button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn primary grow" onclick="renameSession(${i})">Enregistrer</button></div>`);
+}
+function renameSession(i){
+  const old=S.rotation[i], n=$("#fSessName").value.trim(); if(!n||n===old){ closeModal(); return; }
+  if(S.program[n]){ toast("Ce nom existe déjà"); return; }
+  S.program[n]=S.program[old]; delete S.program[old]; S.rotation[i]=n;
+  S.log.forEach(s=>{ if(s.session===old) s.session=n; }); if(S.draft&&S.draft.session===old) S.draft.session=n;
+  sub.prog=n; invalidate(); save(); closeModal(); render();
+}
+function dupSession(i){
+  const old=S.rotation[i]; let n=old+" (copie)"; while(S.program[n]) n+="'";
+  S.program[n]=JSON.parse(JSON.stringify(S.program[old])); S.rotation.splice(i+1,0,n); sub.prog=n; save(); closeModal(); render();
+}
+function delSessionType(i){
+  if(S.rotation.length<=1){ toast("Il faut garder au moins une séance"); return; }
+  if(!confirm(`Supprimer la séance « ${S.rotation[i]} » du programme ? (l'historique est conservé)`)) return;
+  delete S.program[S.rotation[i]]; S.rotation.splice(i,1); sub.prog=S.rotation[0]; save(); closeModal(); render();
+}
+function vBiblio(tabs){
+  const list=[...S.exercises].map((e,i)=>({...e,i})).sort((a,b)=>(a.muscle||"").localeCompare(b.muscle||"")||a.name.localeCompare(b.name));
+  let html=tabs+`<button class="btn primary block" style="margin-bottom:12px" onclick="editEx(-1)">+ Nouvel exercice</button><div class="card">`, m=null;
+  for(const e of list){
+    if(e.muscle!==m){ m=e.muscle; html+=`<div class="small" style="color:var(--accent);margin:10px 0 2px;font-weight:700">${esc(m||"Sans muscle")}</div>`; }
+    html+=`<div class="list-item" onclick="editEx(${e.i})"><div class="grow"><b>${esc(e.name)}</b><div class="small muted">${esc(e.portion||"")}${e.muscle2?" · + "+esc(e.muscle2):""} · +${fmt(num(e.inc)||S.settings.inc,2)} kg</div></div><span class="muted">›</span></div>`;
+  }
+  $("#view").innerHTML=html+`</div>`;
+}
+function muscleOptions(sel,allowEmpty){ return (allowEmpty?`<option value="">— aucun —</option>`:"")+S.muscles.map(m=>`<option ${m===sel?"selected":""}>${esc(m)}</option>`).join(""); }
+function editEx(i){
+  const e = i>=0 ? S.exercises[i] : {name:"",muscle:S.muscles[0],muscle2:"",portion:"",inc:null};
+  modal(`<h2>${i>=0?"Modifier l'exercice":"Nouvel exercice"}</h2>
+    <label>Nom</label><input id="eName" value="${esc(e.name)}">
+    <div class="grid2"><div><label>Muscle principal</label><select id="eM1">${muscleOptions(e.muscle)}</select></div><div><label>Muscle secondaire</label><select id="eM2">${muscleOptions(e.muscle2,true)}</select></div></div>
+    <label>Portion ciblée</label><input id="ePor" value="${esc(e.portion)}" placeholder="ex : longue portion">
+    <label>Incrément de charge (kg)</label><input id="eInc" inputmode="decimal" value="${e.inc??""}" placeholder="vide = ${fmt(S.settings.inc,2)} kg (réglage par défaut)">
+    <div class="tiny muted" style="margin-top:4px">De combien l'appli te conseille de monter quand tu valides le haut de la fourchette de reps.</div>
+    <div class="row" style="margin-top:16px">${i>=0?`<button class="btn danger" onclick="delEx(${i})">Supprimer</button>`:""}<button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn primary grow" onclick="saveEx(${i})">Enregistrer</button></div>`);
+}
+function saveEx(i){
+  const n=$("#eName").value.trim(); if(!n){ toast("Donne un nom à l'exercice"); return; }
+  if(S.exercises.some((x,k)=>x.name===n&&k!==i)){ toast("Cet exercice existe déjà"); return; }
+  const e={name:n, muscle:$("#eM1").value, muscle2:$("#eM2").value, portion:$("#ePor").value.trim(), inc:num($("#eInc").value)};
+  if(i>=0){
+    const old=S.exercises[i].name;
+    if(old!==n){ // renommage : on met à jour partout
+      Object.values(S.program).forEach(a=>a.forEach(l=>{ if(l.ex===old) l.ex=n; if(l.alt===old) l.alt=n; }));
+      S.log.forEach(s=>s.entries.forEach(x=>{ if(x.ex===old) x.ex=n; }));
+      if(S.draft) S.draft.entries.forEach(x=>{ if(x.ex===old) x.ex=n; if(x.line.ex===old) x.line.ex=n; if(x.line.alt===old) x.line.alt=n; });
+    }
+    S.exercises[i]=e;
+  } else S.exercises.push(e);
+  invalidate(); save(); closeModal(); render(); toast("Exercice enregistré");
+}
+function delEx(i){
+  const n=S.exercises[i].name;
+  if(Object.values(S.program).some(a=>a.some(l=>l.ex===n))){ toast("Retire-le d'abord des séances du programme"); return; }
+  if(confirm(`Supprimer « ${n} » de la bibliothèque ? (l'historique est conservé)`)){ S.exercises.splice(i,1); save(); closeModal(); render(); }
+}
+
+/* =====================================================================
+   12. PLUS : corps, réglages, données, aide
+   ===================================================================== */
+function vPlus(){
+  setHeader("Plus");
+  const t=sub.plus||"corps";
+  const tabs=`<div class="tabs">${[["corps","Corps"],["reglages","Réglages"],["donnees","Sauvegarde"],["aide","Aide"]].map(([k,l])=>`<button class="${t===k?"on":""}" onclick="go('plus','${k}')">${l}</button>`).join("")}</div>`;
+  ({corps:vCorps, reglages:vReglages, donnees:vDonnees, aide:vAide})[t](tabs);
+}
+function vCorps(tabs){
+  const b=[...S.body].sort((x,y)=>x.date<y.date?-1:1);
+  const avg7=d=>{ const v=b.filter(x=>x.weight&&x.date>addDays(d,-7)&&x.date<=d).map(x=>x.weight); return v.length?v.reduce((a,c)=>a+c,0)/v.length:null; };
+  const last60=b.filter(x=>x.weight).slice(-60);
+  $("#view").innerHTML=tabs+`
+    <div class="card"><h3>Nouvelle mesure</h3>
+      <div class="grid2"><div><label>Date</label><input type="date" id="bDate" value="${todayStr()}"></div><div><label>Poids (kg)</label><input id="bW" inputmode="decimal"></div></div>
+      <div class="grid2"><div><label>Tour de taille (cm)</label><input id="bWaist" inputmode="decimal"></div><div><label>Tour de bras (cm)</label><input id="bArm" inputmode="decimal"></div></div>
+      <div class="grid2"><div><label>Tour de poitrine (cm)</label><input id="bChest" inputmode="decimal"></div><div><label>Tour de cuisse (cm)</label><input id="bThigh" inputmode="decimal"></div></div>
+      <button class="btn primary block" style="margin-top:12px" onclick="addBody()">Enregistrer</button></div>
+    ${last60.length?`<div class="card"><h3>Poids de corps</h3><canvas id="cBody"></canvas><div class="legend"><span><i style="background:#94a89c"></i>Pesée</span><span><i style="background:#3ecf8e"></i>Moyenne 7 jours</span></div></div>`:""}
+    <div class="card"><h3>Historique</h3>${b.length?`<table class="hist"><tr><th>Date</th><th>Poids</th><th>Moy 7j</th><th>Taille</th><th>Bras</th><th></th></tr>
+      ${[...b].reverse().map(x=>`<tr><td>${fdate(x.date,true)}</td><td>${fmt(x.weight)}</td><td>${fmt(avg7(x.date))}</td><td>${fmt(x.waist)}</td><td>${fmt(x.arm)}</td><td><a href="#" style="color:var(--bad)" onclick="delBody('${x.id}');return false">✕</a></td></tr>`).join("")}</table>`:`<div class="small muted">Aucune mesure. Pèse-toi idéalement le matin à jeun.</div>`}</div>`;
+  if(last60.length) lineChart($("#cBody"),[{values:last60.map(x=>x.weight),color:"#94a89c",width:1},{values:last60.map(x=>Math.round(avg7(x.date)*10)/10),color:"#3ecf8e"}],last60.map(x=>fdate(x.date)),190);
+}
+function addBody(){
+  const x={id:uid(),date:$("#bDate").value||todayStr(),weight:num($("#bW").value),waist:num($("#bWaist").value),arm:num($("#bArm").value),chest:num($("#bChest").value),thigh:num($("#bThigh").value)};
+  if([x.weight,x.waist,x.arm,x.chest,x.thigh].every(v=>v===null)){ toast("Remplis au moins une valeur"); return; }
+  S.body.push(x); save(); render(); toast("Mesure enregistrée");
+}
+function delBody(id){ if(confirm("Supprimer cette mesure ?")){ S.body=S.body.filter(x=>x.id!==id); save(); render(); } }
+function vReglages(tabs){
+  const st=S.settings;
+  const f=(k,l,h)=>`<label>${l}</label><input inputmode="decimal" value="${st[k]}" onchange="setSetting('${k}',this.value)">${h?`<div class="tiny muted" style="margin-top:3px">${h}</div>`:""}`;
+  const c=(k,l)=>`<label class="row" style="color:var(--text);font-size:15px;margin:12px 0"><input type="checkbox" style="width:22px;height:22px" ${st[k]?"checked":""} onchange="S.settings['${k}']=this.checked;save()"> ${l}</label>`;
+  $("#view").innerHTML=tabs+`
+    <div class="card"><h3>Objectifs</h3>${f("objWeek","Séances visées par semaine")}
+      <div class="grid2"><div>${f("minSets","Séries / muscle / sem. : minimum")}</div><div>${f("maxSets","Séries / muscle / sem. : maximum")}</div></div>
+      ${f("secW","Poids d'un muscle secondaire (0 à 1)","Une série de développé couché compte 1 pour les pecs et 0,5 pour les triceps.")}</div>
+    <div class="card"><h3>Progression et stagnation</h3>
+      <div class="grid2"><div>${f("stable","🟡 Stable après … séances sans record")}</div><div>${f("stag","🔴 Stagnation après … séances sans record")}</div></div>
+      ${f("inc","Incrément de charge par défaut (kg)","Utilisé quand l'exercice n'a pas son propre incrément (Programme > Bibliothèque).")}</div>
+    <div class="card"><h3>Pendant la séance</h3>${f("rest","Repos par défaut (secondes)")}
+      ${c("autoTimer","Lancer le minuteur en validant une série ✓")}${c("sound","Bip à la fin du repos")}${c("wake","Garder l'écran allumé pendant la séance")}</div>
+    <div class="card"><h3>Muscles suivis</h3><div class="small muted">${S.muscles.map(esc).join(" · ")}</div>
+      <button class="btn sm" style="margin-top:10px" onclick="editMuscles()">Modifier la liste</button></div>`;
+}
+function setSetting(k,v){ const n=num(v); if(n===null){ toast("Valeur invalide"); render(); return; } S.settings[k]=n; save(); toast("Réglage enregistré"); }
+function editMuscles(){
+  modal(`<h2>Muscles suivis</h2><div class="small muted">Un muscle par ligne.</div><textarea id="mList" rows="14" style="margin-top:8px">${esc(S.muscles.join("\n"))}</textarea>
+    <div class="row" style="margin-top:12px"><button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn primary grow" onclick="S.muscles=$('#mList').value.split('\\n').map(s=>s.trim()).filter(Boolean);save();closeModal();render()">Enregistrer</button></div>`);
+}
+function vDonnees(tabs){
+  const size=(new Blob([localStorage.getItem(KEY)||""]).size/1024).toFixed(0);
+  $("#view").innerHTML=tabs+`
+    <div class="card"><h3>💾 Sauvegarder</h3><div class="small muted">Tes données sont uniquement sur ce téléphone (${size} Ko). Fais une sauvegarde régulièrement (par exemple une fois par semaine) et garde le fichier où tu veux : Fichiers, iCloud, Drive, mail…</div>
+      <button class="btn primary block" style="margin-top:12px" onclick="exportJSON()">Exporter une sauvegarde (.json)</button>
+      <button class="btn block" style="margin-top:8px" onclick="exportCSV()">Exporter le journal (.csv pour Excel / Sheets)</button>
+      <div class="tiny muted" style="margin-top:8px">Dernière sauvegarde : ${S.lastBackup?fdate(S.lastBackup.slice(0,10),true):"jamais"}</div></div>
+    <div class="card"><h3>📥 Restaurer</h3><div class="small muted">Remplace toutes les données actuelles par celles d'une sauvegarde (nouveau téléphone, erreur…).</div>
+      <input type="file" id="impFile" accept=".json,application/json" style="margin-top:10px" onchange="importJSON(this.files[0])">
+      <details><summary>Ou coller le contenu d'une sauvegarde</summary><textarea id="impTxt" rows="4" style="margin-top:8px"></textarea><button class="btn sm" style="margin-top:6px" onclick="importText($('#impTxt').value)">Restaurer</button></details></div>
+    <div class="card"><h3>Réinitialiser</h3>
+      <button class="btn block" onclick="resetProgram()">Remettre le programme d'origine (garde l'historique)</button>
+      <button class="btn danger block" style="margin-top:8px" onclick="resetAll()">Tout effacer</button></div>`;
+}
+async function shareOrDownload(name, text, mime){
+  const blob=new Blob([text],{type:mime});
+  try{
+    const file=new File([blob],name,{type:mime});
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); return true; }
+  }catch(e){ if(e.name==="AbortError") return false; }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  return true;
+}
+async function exportJSON(){
+  const data={...S, draft:S.draft, exportedAt:new Date().toISOString()};
+  if(await shareOrDownload(`muscu-sauvegarde-${todayStr()}.json`, JSON.stringify(data,null,1), "application/json")){ S.lastBackup=new Date().toISOString(); save(); render(); }
+}
+function exportCSV(){
+  const max=Math.max(4,...S.log.flatMap(s=>s.entries.map(e=>e.sets.length)));
+  const head=["Date","Séance","Exercice"]; for(let i=1;i<=max;i++) head.push("Charge "+i,"Reps "+i); head.push("RIR","Notes","Perf (1RM est.)","Volume (kg)");
+  const q=v=>{ const s=String(v??""); return /[;"\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
+  const nf=v=>v===null||v===undefined||v===""?"":String(v).replace(".",",");
+  const rows=[head];
+  for(const s of sortedLog()) for(const e of s.entries){
+    const r=[fdate(s.date,true).replace(/(\d\d)\/(\d\d)\/(\d\d)/,"$1/$2/20$3"),s.session,e.ex];
+    for(let i=0;i<max;i++){ const x=e.sets[i]; r.push(x?nf(x.w):"",x?nf(x.r):""); }
+    r.push(nf(e.rir),e.notes||"",nf(perfOf(e.sets)),nf(volOf(e.sets))); rows.push(r);
+  }
+  shareOrDownload(`muscu-journal-${todayStr()}.csv`, "\ufeff"+rows.map(r=>r.map(q).join(";")).join("\n"), "text/csv");
+}
+function importJSON(file){ if(!file) return; const rd=new FileReader(); rd.onload=()=>importText(rd.result); rd.readAsText(file); }
+function importText(txt){
+  let d; try{ d=JSON.parse(txt); }catch(e){ toast("Fichier invalide"); return; }
+  if(!d||!d.program||!Array.isArray(d.log)){ toast("Ce n'est pas une sauvegarde de l'appli"); return; }
+  if(!confirm(`Restaurer cette sauvegarde (${d.log.length} séances) ? Les données actuelles seront remplacées.`)) return;
+  delete d.exportedAt; localStorage.setItem(KEY,JSON.stringify(d)); load(); invalidate(); render(); toast("Sauvegarde restaurée ✅");
+}
+function resetProgram(){
+  if(!confirm("Remettre le programme et la bibliothèque d'origine ? Ton historique est conservé.")) return;
+  const d=defaultState(); S.program=d.program; S.rotation=d.rotation;
+  d.exercises.forEach(e=>{ if(!S.exercises.some(x=>x.name===e.name)) S.exercises.push(e); });
+  save(); render(); toast("Programme d'origine remis");
+}
+function resetAll(){
+  if(!confirm("Tout effacer (historique, programme, mesures) ? Pense à exporter une sauvegarde avant.")) return;
+  if(!confirm("Vraiment tout effacer ? C'est définitif.")) return;
+  S=defaultState(); save(); invalidate(); render(); toast("Données effacées");
+}
+function vAide(tabs){
+  $("#view").innerHTML=tabs+`<div class="card small" style="line-height:1.55">
+    <h3>À la salle</h3>
+    <p>1. Onglet <b>Séance</b> → <b>Commencer</b> : l'appli propose la séance suivante de ta rotation.</p>
+    <p>2. Pour chaque exercice, la charge conseillée est déjà remplie. Tape tes <b>reps</b>, puis touche <b>✓</b> : le minuteur de repos se lance.</p>
+    <p>3. Changer la charge d'une série met à jour les séries suivantes. Machine prise ? Bouton <b>↔︎</b> pour passer à l'alternative.</p>
+    <p>4. À la fin : <b>Terminer et enregistrer</b>. Si tu fermes l'appli en cours de route, la séance est gardée en brouillon.</p>
+    <h3>Le conseil 👉 (double progression)</h3>
+    <p>Tant que toutes tes séries ne sont pas en haut de la fourchette (ex. 8 reps sur 6-8), garde la charge et ajoute des reps. Quand c'est le cas, l'appli te propose de monter de l'incrément de l'exercice (2,5 kg barre, 1-2 kg haltères…).</p>
+    <h3>Perf, records et statuts</h3>
+    <p><b>Perf</b> = 1RM estimé de ta meilleure série : charge × (1 + reps/30). Elle monte si tu ajoutes du poids <i>ou</i> des reps. <b>★</b> = nouveau record. 🟢 record récent · 🟡 pas de record depuis ${S.settings.stable} séances · 🔴 pas de record depuis ${S.settings.stag} séances.</p>
+    <h3>Modifier</h3>
+    <p>Onglet <b>Programme</b> : séances, ordre, exercices, séries, reps, repos, réglages machine, alternatives. <b>Bibliothèque</b> : ajouter ou renommer un exercice (le renommage est appliqué partout, historique compris). <b>Plus › Réglages</b> : seuils, objectifs, minuteur.</p>
+    <h3>Tes données</h3>
+    <p>Tout reste sur ton téléphone, rien n'est envoyé nulle part. Exporte une sauvegarde de temps en temps (Plus › Sauvegarde), surtout avant de changer de téléphone ou d'effacer Safari.</p></div>`;
+}
+
+/* =====================================================================
+   13. FENÊTRE MODALE + DÉMARRAGE
+   ===================================================================== */
+function modal(html){ closeModal(); const bg=document.createElement("div"); bg.className="modal-bg"; bg.id="modal"; bg.innerHTML=`<div class="modal">${html}</div>`; bg.addEventListener("click",e=>{ if(e.target===bg) closeModal(); }); document.body.appendChild(bg); }
+function closeModal(){ const m=$("#modal"); if(m) m.remove(); }
+
+load(); render();
+if(S.draft) toast("Séance en cours reprise");
+window.addEventListener("resize",()=>{ clearTimeout(window._rz); window._rz=setTimeout(render,200); });
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+</script>
+</body>
+</html>

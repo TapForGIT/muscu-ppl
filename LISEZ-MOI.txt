@@ -1,0 +1,32 @@
+MUSCU PPL - appli web de suivi d'entraînement
+=============================================
+
+CONTENU
+- index.html             l'appli entière (code, style, programme par défaut)
+- sw.js                  fait marcher l'appli sans réseau
+- manifest.json + icônes  nom et icône sur l'écran d'accueil de l'iPhone
+
+METTRE L'APPLI EN LIGNE (une seule fois, gratuit) avec GitHub Pages
+1. Crée un compte sur github.com avec le compte de ton choix.
+2. "New repository" > nom : muscu-ppl > Public > Create.
+3. "uploading an existing file" > glisse TOUS les fichiers de ce dossier > Commit changes.
+4. Settings > Pages > Branch : main / (root) > Save.
+5. Après 1-2 minutes, l'adresse s'affiche : https://TON-PSEUDO.github.io/muscu-ppl/
+
+INSTALLER SUR L'IPHONE
+1. Ouvre l'adresse dans SAFARI (pas Chrome).
+2. Bouton Partager > "Sur l'écran d'accueil" > Ajouter.
+3. Utilise toujours l'appli depuis cette icône : ses données sont séparées de celles de Safari.
+
+TES DONNÉES
+- Elles restent uniquement sur ton téléphone. Aucun compte, rien n'est envoyé.
+- Fais une sauvegarde régulière : Plus > Sauvegarde > Exporter (.json).
+- Nouveau téléphone : installe l'appli puis Plus > Sauvegarde > Restaurer.
+
+MODIFIER L'APPLI
+- Programme, exercices, séries, reps, repos, réglages machine, alternatives,
+  seuils, objectifs : tout se modifie DANS l'appli (onglets Programme et Plus).
+- Pour changer le code (couleurs, textes, fonctionnalités) : modifie index.html
+  (les couleurs sont en haut du fichier), renvoie-le sur GitHub, et
+  augmente le numéro dans sw.js (muscu-ppl-v1 -> v2) pour forcer la mise à jour.
+  Tes données ne sont pas touchées par une mise à jour du code.
