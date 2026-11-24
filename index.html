@@ -88,7 +88,8 @@ canvas{width:100%;display:block}
 .grid3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
 .grid2>*,.grid3>*{min-width:0}
 /* iPhone : les champs date ont une largeur minimale imposée par Safari -> on la supprime */
-input[type=date]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;display:block;min-height:44px;text-align:left}
+input[type=date]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;width:100%;display:block;min-height:44px;text-align:left;-webkit-min-logical-width:calc(100% - 22px);overflow:hidden}
+.card{overflow:hidden}
 input[type=date]::-webkit-date-and-time-value{text-align:left}
 table.hist{width:100%;border-collapse:collapse;font-size:13px}
 table.hist td,table.hist th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
@@ -256,7 +257,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.5";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -307,6 +308,11 @@ function perfOf(sets){
 const volOf = sets => sets.reduce((a,s)=>a+(num(s.w)||0)*(num(s.r)||0),0);
 const topW = sets => Math.max(0,...sets.filter(s=>num(s.r)>0).map(s=>num(s.w)||0));
 const minR = sets => Math.min(...sets.filter(s=>num(s.r)>0).map(s=>num(s.r)));
+// reps moyennes sur les séries faites à la charge de travail (charge max de la séance)
+function avgTop(sets){ const v=sets.filter(s=>num(s.r)>0), t=topW(sets), a=v.filter(s=>(num(s.w)||0)===t); return a.length ? a.reduce((x,s)=>x+num(s.r),0)/a.length : 0; }
+// Types de progrès : ref = 1ère fois · pr = record de perf (1RM est.) · rp = plus de reps à charge égale ou supérieure · wp = nouvelle charge max
+const isProg = r => r==="pr"||r==="rp"||r==="wp";
+const REC_LABEL = {pr:"★ record", rp:"↑ reps", wp:"↑ charge", ref:"réf."};
 function summary(sets){
   const v = sets.filter(s=>num(s.r)>0);
   if(!v.length) return "";
@@ -325,7 +331,7 @@ function allHist(){
   for(const s of sortedLog()){
     for(const e of s.entries){
       const p = perfOf(e.sets); if(p===null) continue;
-      (map[e.ex] = map[e.ex]||[]).push({date:s.date, session:s.session, sid:s.id, sets:e.sets, perf:p, vol:volOf(e.sets), top:topW(e.sets), minr:minR(e.sets), rir:e.rir, notes:e.notes});
+      (map[e.ex] = map[e.ex]||[]).push({date:s.date, session:s.session, sid:s.id, sets:e.sets, perf:p, vol:volOf(e.sets), top:topW(e.sets), minr:minR(e.sets), avg:avgTop(e.sets), rir:e.rir, notes:e.notes});
     }
   }
   for(const ex in map){
@@ -333,7 +339,13 @@ function allHist(){
     h.forEach((x,i)=>{
       const before = h.filter(y=>y.date<x.date);
       const best = before.length ? Math.max(...before.map(y=>y.perf)) : null;
-      x.rec = best===null ? "ref" : (x.perf>best ? "pr" : "");
+      if(best===null){ x.rec="ref"; return; }
+      if(x.perf>best){ x.rec="pr"; return; }
+      const maxTop = Math.max(...before.map(y=>y.top));
+      if(x.top>0 && x.top>maxTop){ x.rec="wp"; return; }                 // nouvelle charge jamais utilisée
+      const comp = before.filter(y=>y.top>=x.top);                        // séances à charge égale ou plus lourde
+      const bestAvg = comp.length ? Math.max(...comp.map(y=>y.avg)) : null;
+      x.rec = (bestAvg!==null && x.avg>bestAvg+1e-9) ? "rp" : "";
     });
   }
   return (_histCache = map);
@@ -612,11 +624,12 @@ function finishSession(){
   const rec = {id:d.id||uid(), date:d.date, session:d.session, notes:d.notes||"", entries, created:d.id?(S.log.find(x=>x.id===d.id)||{}).created||Date.now():Date.now()};
   S.log = S.log.filter(x=>x.id!==rec.id); S.log.push(rec); S.draft=null; invalidate(); save();
   Timer.stop(); keepAwake(false);
-  const prs = entries.filter(e=>{ const h=hist(e.ex).filter(x=>x.sid===rec.id); return h.length && h[0].rec==="pr"; });
+  const recOf = e => (hist(e.ex).find(x=>x.sid===rec.id)||{}).rec;
+  const prs = entries.filter(e=>isProg(recOf(e)));
   const vol = entries.reduce((a,e)=>a+volOf(e.sets),0), nsets = entries.reduce((a,e)=>a+e.sets.length,0);
   modal(`<h2>Séance enregistrée 💪</h2>
     <div class="kpis"><div class="kpi"><div class="v">${nsets}</div><div class="l">séries</div></div><div class="kpi"><div class="v">${fmt(vol,0)}</div><div class="l">kg soulevés</div></div></div>
-    ${prs.length?`<div class="card"><h3>★ ${prs.length} record${prs.length>1?"s":""} !</h3>${prs.map(e=>`<div class="small">${esc(e.ex)} : ${esc(summary(e.sets))}</div>`).join("")}</div>`:`<div class="muted small">Pas de record aujourd'hui, la régularité paie 😉</div>`}
+    ${prs.length?`<div class="card"><h3>💪 ${prs.length} progrès aujourd'hui !</h3>${prs.map(e=>`<div class="small" style="margin:4px 0"><span class="chip gold">${REC_LABEL[recOf(e)]}</span> ${esc(e.ex)} : ${esc(summary(e.sets))}</div>`).join("")}</div>`:`<div class="muted small">Pas de progrès mesuré aujourd'hui, la régularité paie 😉</div>`}
     <button class="btn primary block" style="margin-top:14px" onclick="closeModal();go('progres')">Voir mes progrès</button>
     <button class="btn block ghost" style="margin-top:8px" onclick="closeModal();render()">Fermer</button>`);
   render();
@@ -643,9 +656,9 @@ function vHisto(){
   for(const s of list){
     const m = s.date.slice(0,7);
     if(m!==month){ month=m; const d=toDate(s.date); html+=`<div class="small muted" style="margin:14px 4px 6px;text-transform:capitalize">${d.toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}</div>`; }
-    const prs = s.entries.filter(e=>(hist(e.ex).find(x=>x.sid===s.id)||{}).rec==="pr").length;
+    const prs = s.entries.filter(e=>isProg((hist(e.ex).find(x=>x.sid===s.id)||{}).rec)).length;
     const vol = s.entries.reduce((a,e)=>a+volOf(e.sets),0);
-    html += `<div class="card" onclick="showSession('${s.id}')"><div class="row between"><div><b>${esc(s.session)}</b> <span class="muted small">· ${DAYS[toDate(s.date).getDay()]} ${fdate(s.date)}</span></div>${prs?`<span class="chip gold">★ ${prs}</span>`:""}</div>
+    html += `<div class="card" onclick="showSession('${s.id}')"><div class="row between"><div><b>${esc(s.session)}</b> <span class="muted small">· ${DAYS[toDate(s.date).getDay()]} ${fdate(s.date)}</span></div>${prs?`<span class="chip gold">💪 ${prs}</span>`:""}</div>
       <div class="small muted" style="margin-top:4px">${s.entries.length} exercices · ${s.entries.reduce((a,e)=>a+e.sets.length,0)} séries · ${fmt(vol,0)} kg</div></div>`;
   }
   $("#view").innerHTML = html;
@@ -653,7 +666,7 @@ function vHisto(){
 function showSession(id){
   const s=S.log.find(x=>x.id===id); if(!s) return;
   modal(`<h2>${esc(s.session)} · ${fdate(s.date,true)}</h2>
-    ${s.entries.map(e=>{ const h=(hist(e.ex).find(x=>x.sid===s.id)||{}); return `<div class="list-item"><div class="grow"><div><b>${esc(e.ex)}</b> ${h.rec==="pr"?'<span class="chip gold">★ record</span>':""}</div>
+    ${s.entries.map(e=>{ const h=(hist(e.ex).find(x=>x.sid===s.id)||{}); return `<div class="list-item"><div class="grow"><div><b>${esc(e.ex)}</b> ${isProg(h.rec)?`<span class="chip gold">${REC_LABEL[h.rec]}</span>`:""}</div>
       <div class="small muted">${esc(summary(e.sets))}${e.rir!==null&&e.rir!==undefined?` · RIR ${e.rir}`:""}${e.notes?` · ${esc(e.notes)}`:""}</div></div><div class="small muted">${fmt(h.perf)}</div></div>`; }).join("")}
     ${s.notes?`<div class="small" style="margin-top:10px">📝 ${esc(s.notes)}</div>`:""}
     <div class="row" style="margin-top:14px"><button class="btn danger grow" onclick="delSession('${s.id}')">Supprimer</button><button class="btn primary grow" onclick="editSession('${s.id}')">Modifier</button></div>
@@ -681,27 +694,27 @@ function vBilan(tabs){
   const today=todayStr(), ws=weekStart(today), ms=today.slice(0,8)+"01";
   const sessW=new Set(S.log.filter(s=>s.date>=ws).map(s=>s.date)).size;
   const sessM=new Set(S.log.filter(s=>s.date>=ms).map(s=>s.date)).size;
-  const all=allHist(); let prM=0; for(const ex in all) prM+=all[ex].filter(x=>x.rec==="pr"&&x.date>=ms).length;
+  const all=allHist(); let prM=0, progM=0; for(const ex in all){ prM+=all[ex].filter(x=>x.rec==="pr"&&x.date>=ms).length; progM+=all[ex].filter(x=>isProg(x.rec)&&x.date>=ms).length; }
   const exList=[...new Set(Object.values(S.program).flat().map(l=>l.ex))];
   const stats=exList.map(ex=>({ex,st:statusOf(ex)}));
   const stag=stats.filter(x=>x.st.code===3);
   const weeks=[...Array(12)].map((_,k)=>addDays(ws,-7*(11-k)));
   const ton=weeks.map(w=>S.log.filter(s=>s.date>=w&&s.date<addDays(w,7)).reduce((a,s)=>a+s.entries.reduce((b,e)=>b+volOf(e.sets),0),0));
   const nses=weeks.map(w=>new Set(S.log.filter(s=>s.date>=w&&s.date<addDays(w,7)).map(s=>s.date)).size);
-  const recents=[]; for(const ex in all) all[ex].forEach(x=>{ if(x.rec==="pr") recents.push({ex,...x}); });
+  const recents=[]; for(const ex in all) all[ex].forEach(x=>{ if(isProg(x.rec)) recents.push({ex,...x}); });
   recents.sort((a,b)=>a.date<b.date?1:-1);
   $("#view").innerHTML = tabs+`
     <div class="kpis">
       <div class="kpi"><div class="v">${sessW}<span class="small muted"> / ${S.settings.objWeek}</span></div><div class="l">séances cette semaine</div></div>
       <div class="kpi"><div class="v">${sessM}</div><div class="l">séances ce mois</div></div>
-      <div class="kpi"><div class="v" style="color:var(--gold)">★ ${prM}</div><div class="l">records ce mois</div></div>
+      <div class="kpi"><div class="v" style="color:var(--gold)">💪 ${progM}</div><div class="l">progrès ce mois (dont ★ ${prM} records)</div></div>
       <div class="kpi"><div class="v" style="color:${stag.length?"var(--bad)":"var(--accent)"}">${stag.length}</div><div class="l">exercices en stagnation</div></div>
     </div>
     <div class="card"><h3>Tonnage par semaine (kg)</h3><canvas id="cTon"></canvas></div>
     <div class="card"><h3>Séances par semaine</h3><canvas id="cSes"></canvas></div>
-    <div class="card"><h3>🔴 À surveiller</h3>${stag.length?stag.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}"><div class="grow"><b>${esc(x.ex)}</b><div class="small muted">${x.st.since} séances sans record · dernière perf ${fmt(x.st.last.perf)} / record ${fmt(x.st.best)}</div></div><canvas data-spark="${esc(x.ex)}" style="width:70px"></canvas></div>`).join("")
+    <div class="card"><h3>🔴 À surveiller</h3>${stag.length?stag.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}"><div class="grow"><b>${esc(x.ex)}</b><div class="small muted">${x.st.since} séances sans progrès · dernière perf ${fmt(x.st.last.perf)} / record ${fmt(x.st.best)}</div></div><canvas data-spark="${esc(x.ex)}" style="width:70px"></canvas></div>`).join("")
       +`<div class="small muted" style="margin-top:8px">Pistes : vérifie sommeil et récup, fais une semaine plus légère (−1 série par exercice) ou passe à l'alternative prévue dans le programme.</div>`:`<div class="small muted">Aucune stagnation 👍</div>`}</div>
-    <div class="card"><h3>★ Derniers records</h3>${recents.slice(0,8).map(r=>`<div class="list-item"><div class="grow"><b>${esc(r.ex)}</b><div class="small muted">${esc(summary(r.sets))}</div></div><div class="small muted">${fdate(r.date)}</div></div>`).join("")||`<div class="small muted">Pas encore de record (la 1ère séance sert de référence).</div>`}</div>`;
+    <div class="card"><h3>💪 Derniers progrès</h3>${recents.slice(0,8).map(r=>`<div class="list-item"><div class="grow"><b>${esc(r.ex)}</b><div class="small muted">${esc(summary(r.sets))}</div></div><div style="text-align:right"><span class="chip gold">${REC_LABEL[r.rec]}</span><div class="tiny muted" style="margin-top:3px">${fdate(r.date)}</div></div></div>`).join("")||`<div class="small muted">Pas encore de progrès mesuré (la 1ère séance sert de référence).</div>`}</div>`;
   barChart($("#cTon"),ton,weeks.map(w=>fdate(w)));
   barChart($("#cSes"),nses,weeks.map(w=>fdate(w)),"#2e6b4f",130);
 }
@@ -709,22 +722,22 @@ function vExos(tabs){
   const exList=[...new Set([...Object.values(S.program).flat().map(l=>l.ex), ...Object.keys(allHist())])];
   const rows=exList.map(ex=>({ex,st:statusOf(ex)})).sort((a,b)=>b.st.code-a.st.code || a.ex.localeCompare(b.ex));
   $("#view").innerHTML = tabs+`<div class="card">${rows.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}">
-      <div class="grow"><div><b>${esc(x.ex)}</b></div><div class="small muted">${x.st.h.length} séance${x.st.h.length>1?"s":""}${x.st.code?` · record ${fmt(x.st.best)}${x.st.since?` · ${x.st.since} sans record`:""}`:""}</div><div style="margin-top:4px">${statusChip(x.st)}</div></div>
+      <div class="grow"><div><b>${esc(x.ex)}</b></div><div class="small muted">${x.st.h.length} séance${x.st.h.length>1?"s":""}${x.st.code?` · record ${fmt(x.st.best)}${x.st.since?` · ${x.st.since} sans progrès`:""}`:""}</div><div style="margin-top:4px">${statusChip(x.st)}</div></div>
       <canvas data-spark="${esc(x.ex)}" style="width:80px"></canvas></div>`).join("")}</div>
-    <div class="small muted" style="padding:0 4px">Perf = 1RM estimé de ta meilleure série (charge × (1 + reps/30)). 🟢 record récent · 🟡 ${S.settings.stable}+ séances sans record · 🔴 ${S.settings.stag}+ séances sans record.</div>`;
+    <div class="small muted" style="padding:0 4px">Un <b>progrès</b> = ★ record de perf (1RM estimé de ta meilleure série), ou ↑ charge (charge jamais utilisée), ou ↑ reps (plus de reps en moyenne sur tes séries, à charge égale ou plus lourde). 🟢 progrès récent · 🟡 ${S.settings.stable}+ séances sans progrès · 🔴 ${S.settings.stag}+ séances sans progrès.</div>`;
 }
 function showEx(ex){
   const h=hist(ex), st=statusOf(ex), inf=exInfo(ex);
   const last30=h.slice(-30);
   modal(`<h2>${esc(ex)}</h2><div class="small muted">${esc(inf.muscle)}${inf.portion?" · "+esc(inf.portion):""}</div>
     <div class="row wrap" style="margin:10px 0">${statusChip(st)}${st.code?`<span class="chip">Record ${fmt(st.best)}</span>`:""}<span class="chip">${h.length} séances</span></div>
-    <div class="card" style="padding:10px"><canvas id="cEx"></canvas><div class="legend"><span><i style="background:#3ecf8e"></i>Perf (1RM est.)</span><span><i style="background:#f4b183"></i>Charge max</span><span><i style="background:#ffd166"></i>Record</span></div></div>
+    <div class="card" style="padding:10px"><canvas id="cEx"></canvas><div class="legend"><span><i style="background:#3ecf8e"></i>Perf (1RM est.)</span><span><i style="background:#f4b183"></i>Charge max</span><span><i style="background:#ffd166"></i>Progrès</span></div></div>
     <div class="card" style="padding:10px"><h3>Volume par séance (kg)</h3><canvas id="cVol"></canvas></div>
     <table class="hist"><tr><th>Date</th><th>Séries</th><th>Perf</th><th></th></tr>
-    ${[...h].reverse().map(x=>`<tr><td>${fdate(x.date,true)}</td><td>${esc(summary(x.sets))}</td><td>${fmt(x.perf)}</td><td>${x.rec==="pr"?"★":x.rec==="ref"?"réf.":""}</td></tr>`).join("")}</table>
+    ${[...h].reverse().map(x=>`<tr><td>${fdate(x.date,true)}</td><td>${esc(summary(x.sets))}</td><td>${fmt(x.perf)}</td><td style="white-space:nowrap">${x.rec?REC_LABEL[x.rec]:""}</td></tr>`).join("")}</table>
     <button class="btn block" style="margin-top:14px" onclick="closeModal()">Fermer</button>`);
   setTimeout(()=>{
-    lineChart($("#cEx"),[{values:last30.map(x=>x.top||null),color:"#f4b183",width:1.5},{values:last30.map(x=>x.perf),color:"#3ecf8e",marks:last30.map(x=>x.rec==="pr")}],last30.map(x=>fdate(x.date)),210);
+    lineChart($("#cEx"),[{values:last30.map(x=>x.top||null),color:"#f4b183",width:1.5},{values:last30.map(x=>x.perf),color:"#3ecf8e",marks:last30.map(x=>isProg(x.rec))}],last30.map(x=>fdate(x.date)),210);
     barChart($("#cVol"),last30.map(x=>x.vol),last30.map(x=>fdate(x.date)),"#2e6b4f",130);
   },30);
 }
@@ -897,7 +910,7 @@ function vReglages(tabs){
       <div class="grid2"><div>${f("minSets","Séries / muscle / sem. : minimum")}</div><div>${f("maxSets","Séries / muscle / sem. : maximum")}</div></div>
       ${f("secW","Poids d'un muscle secondaire (0 à 1)","Une série de développé couché compte 1 pour les pecs et 0,5 pour les triceps.")}</div>
     <div class="card"><h3>Progression et stagnation</h3>
-      <div class="grid2"><div>${f("stable","🟡 Stable après … séances sans record")}</div><div>${f("stag","🔴 Stagnation après … séances sans record")}</div></div>
+      <div class="grid2"><div>${f("stable","🟡 Stable après … séances sans progrès")}</div><div>${f("stag","🔴 Stagnation après … séances sans progrès")}</div></div>
       ${f("inc","Incrément de charge par défaut (kg)","Utilisé quand l'exercice n'a pas son propre incrément (Programme > Bibliothèque).")}</div>
     <div class="card"><h3>Pendant la séance</h3>${f("rest","Repos par défaut (secondes)")}
       ${c("autoTimer","Lancer le minuteur en validant une série ✓")}${c("sound","Bip à la fin du repos")}${c("wake","Garder l'écran allumé pendant la séance")}</div>
@@ -976,8 +989,10 @@ function vAide(tabs){
     <p>4. À la fin : <b>Terminer et enregistrer</b>. Si tu fermes l'appli en cours de route, la séance est gardée en brouillon.</p>
     <h3>Le conseil 👉 (double progression)</h3>
     <p>Tant que toutes tes séries ne sont pas en haut de la fourchette (ex. 8 reps sur 6-8), garde la charge et ajoute des reps. Quand c'est le cas, l'appli te propose de monter de l'incrément de l'exercice (2,5 kg barre, 1-2 kg haltères…).</p>
-    <h3>Perf, records et statuts</h3>
-    <p><b>Perf</b> = 1RM estimé de ta meilleure série : charge × (1 + reps/30). Elle monte si tu ajoutes du poids <i>ou</i> des reps. <b>★</b> = nouveau record. 🟢 record récent · 🟡 pas de record depuis ${S.settings.stable} séances · 🔴 pas de record depuis ${S.settings.stag} séances.</p>
+    <h3>Perf, progrès et statuts</h3>
+    <p><b>Perf</b> = 1RM estimé de ta meilleure série : charge × (1 + reps/30).</p>
+    <p>Une séance compte comme un <b>progrès</b> si : <b>★ record</b> (meilleure perf jamais faite), <b>↑ charge</b> (charge jamais utilisée sur cet exercice, même avec moins de reps), ou <b>↑ reps</b> (plus de reps en moyenne sur tes séries à la charge de travail que toutes les fois où tu as utilisé cette charge ou plus lourd). Ex. : 90 kg × 8/6/5 puis 90 kg × 8/8/8 = ↑ reps.</p>
+    <p>🟢 progrès récent · 🟡 pas de progrès depuis ${S.settings.stable} séances · 🔴 pas de progrès depuis ${S.settings.stag} séances.</p>
     <h3>Modifier</h3>
     <p>Onglet <b>Programme</b> : séances, ordre, exercices, séries, reps, repos, réglages machine, alternatives. <b>Bibliothèque</b> : ajouter ou renommer un exercice (le renommage est appliqué partout, historique compris). <b>Plus › Réglages</b> : seuils, objectifs, minuteur.</p>
     <h3>Tes données</h3>
