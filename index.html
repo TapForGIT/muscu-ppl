@@ -25,7 +25,9 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;font-size:16px}
-body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom));min-height:100vh;min-height:100dvh;overscroll-behavior-y:none}
+html{scroll-behavior:auto;overscroll-behavior-y:none}
+main{min-height:calc(100vh - 140px);min-height:calc(100dvh - 140px)}
 header{position:sticky;top:0;z-index:20;background:rgba(17,24,20,.94);backdrop-filter:blur(8px);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
 header h1{margin:0;font-size:20px;font-weight:700}
 header .sub{color:var(--muted);font-size:13px;margin-top:2px}
@@ -461,7 +463,12 @@ document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==
    ===================================================================== */
 const VIEWS = [["seance","🏋️","Séance"],["histo","📅","Historique"],["progres","📈","Progrès"],["programme","📝","Programme"],["plus","⚙️","Plus"]];
 let view = "seance", sub = {};
-function go(v, s){ view=v; if(s!==undefined) sub[v]=s; render(); window.scrollTo(0,0); }
+function go(v, s){
+  const changed = v!==view || (s!==undefined && sub[v]!==s);
+  if(!changed) return;
+  view=v; if(s!==undefined) sub[v]=s; render();
+  window.scrollTo({top:0,left:0,behavior:"instant"});
+}
 function renderNav(){ $("#nav").innerHTML = VIEWS.map(([k,ic,l])=>`<button class="${view===k?"on":""}" onclick="go('${k}')"><span class="ic">${ic}</span>${l}</button>`).join(""); }
 function setHeader(t, s=""){ $("#title").textContent=t; $("#subtitle").textContent=s; }
 function render(){
@@ -979,7 +986,8 @@ function closeModal(){ const m=$("#modal"); if(m) m.remove(); }
 
 load(); render();
 if(S.draft) toast("Séance en cours reprise");
-window.addEventListener("resize",()=>{ clearTimeout(window._rz); window._rz=setTimeout(render,200); });
+let _lastW = window.innerWidth;
+window.addEventListener("resize",()=>{ if(window.innerWidth===_lastW) return; _lastW=window.innerWidth; clearTimeout(window._rz); window._rz=setTimeout(()=>{ if(!document.activeElement || document.activeElement.tagName!=="INPUT") render(); },250); });
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 </script>
 </body>
