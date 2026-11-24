@@ -184,45 +184,45 @@ const DEFAULT_EXERCISES = [
 // [exercice, séries, reps min, reps max, charge de départ, repos (s), réglages machine, alternative, notes]
 const DEFAULT_PROGRAM = {
  "Push A":[
-  ["Développé couché Smith",3,6,8,90,150,"","Développé couché haltères",""],
-  ["Développé incliné haltères",3,8,10,60,120,"","Développé incliné Smith",""],
-  ["Écartés poulie haute vers basse",2,12,15,7.5,90,"23","Pec deck",""],
-  ["Élévations latérales poulie",3,12,15,7.5,75,"12","Élévations latérales haltères",""],
-  ["Extension triceps overhead poulie",3,8,12,null,90,"16","Extension nuque haltère deux mains",""],
-  ["Pushdown corde",2,10,12,5,75,"Le plus haut","Dips machine assis",""]],
+  ["Développé couché Smith",3,6,8,90,180,"","Développé couché haltères",""],
+  ["Développé incliné haltères",3,8,10,60,180,"","Développé incliné Smith",""],
+  ["Écartés poulie haute vers basse",2,12,15,7.5,120,"23","Pec deck",""],
+  ["Élévations latérales poulie",3,12,15,7.5,120,"12","Élévations latérales haltères",""],
+  ["Extension triceps overhead poulie",3,8,12,null,120,"16","Extension nuque haltère deux mains",""],
+  ["Pushdown corde",2,10,12,5,120,"Le plus haut","Dips machine assis",""]],
  "Pull A":[
-  ["Tirage vertical prise neutre serrée",3,6,8,55,150,"","Tractions (poids du corps)",""],
-  ["Tirage horizontal coudes serrés",3,8,10,30,120,"","Rowing haltère unilatéral",""],
-  ["Pull-over poulie",2,12,15,null,90,"","Pull-over haltère",""],
-  ["Face pull",3,12,15,10,75,"4","Oiseau haltères buste appuyé",""],
-  ["Curl incliné haltères",3,8,10,12,90,"","Curl haltères debout",""],
-  ["Curl marteau",2,10,12,12,75,"","",""]],
+  ["Tirage vertical prise neutre serrée",3,6,8,55,180,"","Tractions (poids du corps)",""],
+  ["Tirage horizontal coudes serrés",3,8,10,30,180,"","Rowing haltère unilatéral",""],
+  ["Pull-over poulie",2,12,15,null,120,"","Pull-over haltère",""],
+  ["Face pull",3,12,15,10,120,"4","Oiseau haltères buste appuyé",""],
+  ["Curl incliné haltères",3,8,10,12,120,"","Curl haltères debout",""],
+  ["Curl marteau",2,10,12,12,120,"","",""]],
  "Legs A":[
   ["Squat barre",3,6,8,80,180,"","Squat Smith",""],
-  ["Presse à cuisses",2,10,12,70,120,"","Hack squat",""],
-  ["Leg extension",3,10,12,45,90,"6 / 1 / 2","",""],
-  ["Leg curl assis",3,10,12,30,90,"3 / 3 / 1","Leg curl allongé",""],
-  ["Crunch poulie",2,10,15,null,60,"","Crunch machine",""]],
+  ["Presse à cuisses",2,10,12,70,180,"","Hack squat",""],
+  ["Leg extension",3,10,12,45,120,"6 / 1 / 2","",""],
+  ["Leg curl assis",3,10,12,30,120,"3 / 3 / 1","Leg curl allongé",""],
+  ["Crunch poulie",2,10,15,null,120,"","Crunch machine",""]],
  "Push B":[
-  ["Développé épaules machine",3,6,8,30,150,"Au plus haut","Développé épaules haltères assis",""],
-  ["Développé incliné Smith",3,8,10,null,120,"","Développé incliné machine",""],
-  ["Écartés poulie basse vers haute",2,12,15,null,90,"","Écartés haltères banc incliné",""],
-  ["Élévations latérales haltères",3,12,15,null,75,"","Élévations latérales machine",""],
-  ["Extension triceps overhead poulie",3,8,12,null,90,"16","Extension nuque unilatérale haltère",""],
-  ["Pushdown unilatéral prise supination",2,12,15,null,75,"","Kickback haltère",""]],
+  ["Développé épaules machine",3,6,8,30,180,"Au plus haut","Développé épaules haltères assis",""],
+  ["Développé incliné Smith",3,8,10,null,180,"","Développé incliné machine",""],
+  ["Écartés poulie basse vers haute",2,12,15,null,120,"","Écartés haltères banc incliné",""],
+  ["Élévations latérales haltères",3,12,15,null,120,"","Élévations latérales machine",""],
+  ["Extension triceps overhead poulie",3,8,12,null,120,"16","Extension nuque unilatérale haltère",""],
+  ["Pushdown unilatéral prise supination",2,12,15,null,120,"","Kickback haltère",""]],
  "Pull B":[
-  ["Tirage vertical prise large",3,8,10,null,120,"","Tractions (poids du corps)",""],
-  ["Rowing T poitrine appuyée prise large",3,8,10,null,120,"","Rowing haltères buste appuyé",""],
-  ["Reverse pec deck",3,12,15,null,75,"","Oiseau haltères buste appuyé",""],
-  ["Curl pupitre",3,8,12,null,90,"","Spider curl",""],
-  ["Curl inversé barre EZ",2,12,15,null,75,"","Curl marteau",""]],
+  ["Tirage vertical prise large",3,8,10,null,180,"","Tractions (poids du corps)",""],
+  ["Rowing T poitrine appuyée prise large",3,8,10,null,180,"","Rowing haltères buste appuyé",""],
+  ["Reverse pec deck",3,12,15,null,120,"","Oiseau haltères buste appuyé",""],
+  ["Curl pupitre",3,8,12,null,120,"","Spider curl",""],
+  ["Curl inversé barre EZ",2,12,15,null,120,"","Curl marteau",""]],
  "Legs B":[
-  ["Soulevé de terre Smith",3,8,10,null,150,"","Soulevé de terre roumain haltères",""],
-  ["Fentes bulgares",2,8,12,null,120,"","Fentes marchées haltères","Reps par jambe"],
-  ["Leg curl assis",3,10,15,30,90,"3 / 3 / 1","Leg curl allongé",""],
-  ["Adducteurs machine",2,12,15,25,75,"","",""],
-  ["Abducteurs machine",2,12,15,null,75,"","",""],
-  ["Relevés de jambes suspendu",2,10,15,null,60,"","Relevés de genoux chaise romaine",""]],
+  ["Soulevé de terre Smith",3,8,10,null,180,"","Soulevé de terre roumain haltères",""],
+  ["Fentes bulgares",2,8,12,null,180,"","Fentes marchées haltères","Reps par jambe"],
+  ["Leg curl assis",3,10,15,30,120,"3 / 3 / 1","Leg curl allongé",""],
+  ["Adducteurs machine",2,12,15,25,120,"","",""],
+  ["Abducteurs machine",2,12,15,null,120,"","",""],
+  ["Relevés de jambes suspendu",2,10,15,null,120,"","Relevés de genoux chaise romaine",""]],
 };
 
 const DEFAULT_SETTINGS = {
@@ -233,7 +233,7 @@ const DEFAULT_SETTINGS = {
   minSets:8,      // séries / muscle / semaine : minimum
   maxSets:20,     // séries / muscle / semaine : maximum
   secW:0.5,       // poids d'un muscle secondaire
-  rest:90,        // repos par défaut (s)
+  rest:120,       // repos par défaut (s)
   autoTimer:true, // lancer le minuteur en validant une série
   sound:true,     // bip à la fin du repos
   wake:true       // garder l'écran allumé pendant la séance
@@ -257,7 +257,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.8";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -265,6 +265,14 @@ function load(){
   if(!S || !S.program){ S = defaultState(); save(); }
   S.settings = {...DEFAULT_SETTINGS, ...(S.settings||{})};
   S.body = S.body||[]; S.log = S.log||[]; S.muscles = S.muscles||[...MUSCLES];
+  // v1.8 : nouveaux temps de repos (3 min gros exercices, 2 min isolation), appliqués une seule fois
+  if(!S.restV18){
+    for(const [sess,list] of Object.entries(DEFAULT_PROGRAM)){
+      (S.program[sess]||[]).forEach(l=>{ const d=list.find(x=>x[0]===l.ex); if(d) l.rest=d[5]; });
+    }
+    if(S.settings.rest===90) S.settings.rest=120;
+    S.restV18=true; save();
+  }
 }
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(S)); }
@@ -337,7 +345,7 @@ function allHist(){
   for(const ex in map){
     const h = map[ex];
     h.forEach((x,i)=>{
-      const before = h.filter(y=>y.date<x.date);
+      const before = h.slice(0,i);   // toutes les séances enregistrées avant (ordre : date puis heure d'enregistrement)
       const best = before.length ? Math.max(...before.map(y=>y.perf)) : null;
       if(best===null){ x.rec="ref"; return; }
       if(x.perf>best){ x.rec="pr"; return; }
@@ -356,11 +364,20 @@ const hist = ex => allHist()[ex] || [];
 function statusOf(ex){
   const h = hist(ex);
   if(h.length<2) return {code:0, since:null, h};
-  let lastRec = null; h.forEach(x=>{ if(x.rec) lastRec = x.date; });
-  const since = h.filter(x=>x.date>lastRec).length;
+  let lastIdx = 0; h.forEach((x,i)=>{ if(x.rec) lastIdx = i; });
+  const lastRec = h[lastIdx].date, since = h.length-1-lastIdx;
   const best = Math.max(...h.map(x=>x.perf));
   const code = since>=S.settings.stag ? 3 : since>=S.settings.stable ? 2 : 1;
   return {code, since, lastRec, best, last:h[h.length-1], h};
+}
+// badge "dernière séance" : type de progrès de la séance la plus récente, ou date du dernier progrès
+function lastProgChip(ex){
+  const h=hist(ex); if(!h.length) return "";
+  const last=h[h.length-1];
+  if(isProg(last.rec)) return `<span class="chip gold">dernière : ${REC_LABEL[last.rec]}</span>`;
+  if(last.rec==="ref") return `<span class="chip">dernière : réf.</span>`;
+  let lp=null; h.forEach(x=>{ if(isProg(x.rec)) lp=x; });
+  return lp ? `<span class="chip">dernier progrès : ${REC_LABEL[lp.rec]} le ${fdate(lp.date)}</span>` : `<span class="chip">dernière : pas de progrès</span>`;
 }
 const STATUS = [["⚪","Pas assez de données",""],["🟢","Progression","good"],["🟡","Stable","warn"],["🔴","Stagnation","bad"]];
 const statusChip = st => `<span class="chip ${STATUS[st.code][2]}">${STATUS[st.code][0]} ${STATUS[st.code][1]}</span>`;
@@ -550,7 +567,7 @@ function entryCard(e,i){
       ${inf.portion?`<div class="tiny muted">${esc(inf.portion)}</div>`:""}
     </div><div style="text-align:right">${st.code?statusChip(st):""}<div class="tiny muted" style="margin-top:4px">${e.collapsed?"▼":"▲"}</div></div></div>
     <div class="body">
-      <div class="small muted" style="margin-top:8px">Dernière fois : ${last?`<b style="color:var(--text)">${esc(summary(last.sets))}</b> (${fdate(last.date)})`:"jamais fait"}</div>
+      <div class="small muted" style="margin-top:8px">Dernière fois : ${last?`<b style="color:var(--text)">${esc(summary(last.sets))}</b> (${fdate(last.date)}) ${isProg(last.rec)?`<span class="chip gold">${REC_LABEL[last.rec]}</span>`:""}`:"jamais fait"}</div>
       <div class="tip">👉 ${esc(a.txt)}</div>
       ${l.notes?`<div class="small" style="color:var(--warn)">📌 ${esc(l.notes)}</div>`:""}
       <table class="sets"><tr><th>#</th><th>kg</th><th>reps</th><th></th></tr>
@@ -722,7 +739,7 @@ function vExos(tabs){
   const exList=[...new Set([...Object.values(S.program).flat().map(l=>l.ex), ...Object.keys(allHist())])];
   const rows=exList.map(ex=>({ex,st:statusOf(ex)})).sort((a,b)=>b.st.code-a.st.code || a.ex.localeCompare(b.ex));
   $("#view").innerHTML = tabs+`<div class="card">${rows.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}">
-      <div class="grow"><div><b>${esc(x.ex)}</b></div><div class="small muted">${x.st.h.length} séance${x.st.h.length>1?"s":""}${x.st.code?` · record ${fmt(x.st.best)}${x.st.since?` · ${x.st.since} sans progrès`:""}`:""}</div><div style="margin-top:4px">${statusChip(x.st)}</div></div>
+      <div class="grow"><div><b>${esc(x.ex)}</b></div><div class="small muted">${x.st.h.length} séance${x.st.h.length>1?"s":""}${x.st.code?` · record ${fmt(x.st.best)}${x.st.since?` · ${x.st.since} sans progrès`:""}`:""}</div><div style="margin-top:4px">${statusChip(x.st)} ${lastProgChip(x.ex)}</div></div>
       <canvas data-spark="${esc(x.ex)}" style="width:80px"></canvas></div>`).join("")}</div>
     <div class="small muted" style="padding:0 4px">Un <b>progrès</b> = ★ record de perf (1RM estimé de ta meilleure série), ou ↑ charge (charge jamais utilisée), ou ↑ reps (plus de reps en moyenne sur tes séries, à charge égale ou plus lourde). 🟢 progrès récent · 🟡 ${S.settings.stable}+ séances sans progrès · 🔴 ${S.settings.stag}+ séances sans progrès.</div>`;
 }
