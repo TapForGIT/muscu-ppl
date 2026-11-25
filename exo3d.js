@@ -53,20 +53,25 @@ function Man(scene){
     parts['hp'+k]=sph(0.085,MAT.body); parts['kn'+k]=sph(0.06,MAT.body);
     parts['th'+k]=cyl(0.06,0.085,1,MAT.body); parts['sn'+k]=cyl(0.042,0.058,1,MAT.body);
     parts['ft'+k]=box(0.09,0.06,0.22,MAT.body);
-    for(const n of ['sh','el','hd','ua','fa','hp','kn','th','sn','ft']) scene.add(parts[n+k]);
+    parts['pm'+k]=box(0.09,0.03,0.12,MAT.body); parts['pm'+k].visible=false;
+    for(const n of ['sh','el','hd','ua','fa','hp','kn','th','sn','ft','pm']) scene.add(parts[n+k]);
   }
   const J={};
   function set(P){
     const up=P.up.clone().normalize(), fwd=P.fwd.clone().normalize(), right=new THREE.Vector3().crossVectors(up,fwd).normalize();
     const f2=new THREE.Vector3().crossVectors(right,up).normalize();
-    torso.position.copy(P.pelvis); torso.quaternion.copy(basisQuat(right,up,f2)); upper.rotation.x=P.bend||0; torso.updateMatrixWorld(true);
+    torso.position.copy(P.pelvis); torso.quaternion.copy(basisQuat(right,up,f2)); upper.rotation.set(P.bend||0,P.twist||0,0); torso.updateMatrixWorld(true);
     J.up=up; J.fwd=f2; J.right=right; J.pelvis=P.pelvis.clone();
+    const uq=upper.getWorldQuaternion(new THREE.Quaternion()); J.cn=V(0,0,1).applyQuaternion(uq); J.cu=V(0,1,0).applyQuaternion(uq);
     J.neck=upper.localToWorld(V(0,0.30,0)); J.head=upper.localToWorld(V(0,0.48,0.01)); J.chest=upper.localToWorld(V(0,0.13,0)); J.abd=torso.localToWorld(V(0,0.12,0));
     for(const [k,s] of [['L',-1],['R',1]]){
       const S=upper.localToWorld(V(0.2*s,0.25+(P.shrug||0),0)), H=P.hand[k];
       const E=P.elbow&&P.elbow[k] ? P.elbow[k] : ik3(S,H,BODY.ua,BODY.fa,P.elbowPole[k]);
       parts['sh'+k].position.copy(S); parts['el'+k].position.copy(E); parts['hd'+k].position.copy(H);
       between(parts['ua'+k],S,E); between(parts['fa'+k],E,H);
+      const pm=P.palm&&P.palm[k]; parts['pm'+k].visible=!!pm; parts['hd'+k].visible=!pm;
+      if(pm){ const d=pm.dir.clone().normalize(), n=pm.normal.clone().addScaledVector(d,-pm.normal.dot(d)).normalize(), r=new THREE.Vector3().crossVectors(n,d).normalize();
+        parts['pm'+k].quaternion.copy(basisQuat(r,n,d)); parts['pm'+k].position.copy(H).addScaledVector(d,0.04); }
       const Hp=torso.localToWorld(V(0.1*s,-0.04,0)), A=P.foot[k];
       const K=ik3(Hp,A,BODY.th,BODY.sh,P.kneePole[k]);
       parts['hp'+k].position.copy(Hp); parts['kn'+k].position.copy(K);
@@ -169,16 +174,21 @@ EX["Développé incliné Smith"]={ cam:{target:V(0,0.85,0),dist:3.4,h:1.55,ang:5
       elbowPole:{L:V(-1,-0.8,0.5),R:V(1,-0.8,0.5)}, kneePole:{L:V(-0.2,1,0.2),R:V(0.2,1,0.2)}, footDir:toesOut}); }};
 }};
 
-EX["Développé incliné haltères"]={ cam:{target:V(0,0.8,0),dist:3.0,h:1.5,ang:50}, build(scene){
+EX["Développé incliné haltères"]={ cam:{target:V(0,0.95,0),dist:3.1,h:1.45,ang:62}, build(scene){
   floor(scene); const man=Man(scene); const inc=35, hinge=V(0,0.44,0.25); bench(scene,inc,hinge); const F=benchFrame(inc,hinge);
   const C=F.pelvis.clone().addScaledVector(F.up,0.5), dbs=[dumbbell(scene),dumbbell(scene)];
-  return { man, pose(t){
-    const h={}; for(const [k,s] of [['L',-1],['R',1]]){ h[k]=C.clone().add(V(s*lerp(0.33,0.11,t),0,0)).addScaledVector(F.fwd,lerp(0.15,0.575,t)).addScaledVector(F.up,lerp(-0.12,0.0,t)); }
+  return { man, pose(t){ const h={};
+    for(const [k,s] of [['L',-1],['R',1]]){ const S=C.clone().add(V(0.2*s,0,0));
+      // départ : haltères au niveau du haut des pectoraux ; arrivée : bras verticaux au-dessus des épaules (trajet vers le plafond, pas dans l'axe du banc)
+      const A=S.clone().add(V(0.14*s,0,0)).addScaledVector(F.fwd,0.13).addScaledVector(F.up,-0.10), B=S.clone().add(V(-0.07*s,0.565,0.03));
+      const e=ease(t); h[k]=A.clone().lerp(B,e); h[k].x=lerp(A.x,B.x,Math.min(1,e*1.15)); }
     placeDB(dbs[0],h.L,V(1,0,0)); placeDB(dbs[1],h.R,V(1,0,0));
     man.set({pelvis:F.pelvis, up:F.up, fwd:F.fwd, hand:h, foot:{L:V(-0.26,0.07,F.pelvis.z+0.50),R:V(0.26,0.07,F.pelvis.z+0.50)},
-      elbowPole:{L:V(-1,0,0).addScaledVector(F.fwd,-1.0).addScaledVector(F.up,-0.6),R:V(1,0,0).addScaledVector(F.fwd,-1.0).addScaledVector(F.up,-0.6)},
+      elbowPole:{L:V(-1,0,0).addScaledVector(F.fwd,-1.0).addScaledVector(F.up,-0.3),R:V(1,0,0).addScaledVector(F.fwd,-1.0).addScaledVector(F.up,-0.3)},
       kneePole:{L:V(-0.2,1,0.2),R:V(0.2,1,0.2)}, footDir:toesOut}); }};
 }};
+
+// Dips : épaules qui passent devant les mains en bas, coudes vers l'arrière, buste penché ~25°, genoux fléchis pieds derrière
 
 EX["Écartés poulie haute vers basse"]={ cam:{target:V(0,1.1,0),dist:3.6,h:1.45,ang:28}, build(scene){
   floor(scene); const man=Man(scene); const pL=tower(scene,-1.0,-0.25,1.95,-0.15), pR=tower(scene,1.0,-0.25,1.95,0.15);
@@ -379,21 +389,25 @@ EX["Élévations latérales machine"]={ cam:{target:V(0,1.1,0),dist:3.3,h:1.5,an
     man.set({pelvis, up, fwd, hand:h, elbow:el, foot:legsSeated(0.45), elbowPole:{L:V(-1,0,0),R:V(1,0,0)}, kneePole:kneeFwd, footDir:toesOut}); }};
 }};
 
-function overheadDB(scene,oneArm){ floor(scene); const man=Man(scene); const inc=84, hinge=V(0,0.44,0.15); bench(scene,inc,hinge); const F=benchFrame(inc,hinge);
-  const db=dumbbell(scene); const right=frameOf(F.up,F.fwd), C=F.pelvis.clone().addScaledVector(F.up,0.5);
-  return { man, pose(t){ const ext=lerp(140,8,t)*D, h={}, el={};
-    if(!oneArm){ const Ec=C.clone().addScaledVector(F.up,0.27).addScaledVector(F.fwd,0.06);
-      for(const [k,s] of [['L',-1],['R',1]]){ el[k]=Ec.clone().addScaledVector(right,0.10*s); const S=C.clone().addScaledVector(right,0.2*s); const u=el[k].clone().sub(S).normalize();
-        h[k]=el[k].clone().addScaledVector(u,0.30*Math.cos(ext)).addScaledVector(F.fwd,-0.30*Math.sin(ext)).addScaledVector(right,-0.07*s); }
-      const mid=h.L.clone().add(h.R).multiplyScalar(0.5); placeDB(db,mid.clone().addScaledVector(F.up,0.06),el.L.clone().sub(h.L).add(el.R.clone().sub(h.R)).normalize().negate());
-      man.set({pelvis:F.pelvis, up:F.up, fwd:F.fwd, hand:h, elbow:el, foot:legsSeated(F.pelvis.z+0.48), elbowPole:{L:V(0,0,1),R:V(0,0,1)}, kneePole:kneeFwd, footDir:toesOut});
-    } else { const S=C.clone().addScaledVector(right,0.2); el.R=S.clone().addScaledVector(F.up,0.28).addScaledVector(right,-0.06).addScaledVector(F.fwd,0.05); const u=el.R.clone().sub(S).normalize();
-      h.R=el.R.clone().addScaledVector(u,0.30*Math.cos(ext)).addScaledVector(F.fwd,-0.30*Math.sin(ext)).addScaledVector(right,-0.06); placeDB(db,h.R,el.R.clone().sub(h.R).normalize());
-      h.L=el.R.clone().addScaledVector(F.fwd,0.06).addScaledVector(right,-0.03).addScaledVector(F.up,-0.04);
-      man.set({pelvis:F.pelvis, up:F.up, fwd:F.fwd, hand:h, elbow:{R:el.R}, foot:legsSeated(F.pelvis.z+0.48), elbowPole:{L:V(-1,-0.5,0.8),R:V(0,0,1)}, kneePole:kneeFwd, footDir:toesOut}); } }};
+function overheadDB(scene,oneArm){ floor(scene); const man=Man(scene);
+  seatBox(scene,0.48,0.0,0.40); const pelvis=V(0,0.62,0.0), up=V(0,1,0), fwd=V(0,0,1), right=V(1,0,0);
+  backPad(scene,V(0,0.86,-0.17),0,0.42); fixed(scene,0.035,V(0,0.66,-0.21),V(0,0.44,-0.10));
+  const db=dumbbell(scene); const C=pelvis.clone().addScaledVector(up,0.5);
+  return { man, pose(t){ const ext=lerp(125,5,ease(t))*D, h={}, el={}; const u=V(0,1,0.18).normalize(), w=V(0,0.18,-1).normalize();
+    if(!oneArm){
+      for(const [k,s] of [['L',-1],['R',1]]){ el[k]=C.clone().add(V(0.125*s,0.26,0.08));
+        h[k]=el[k].clone().addScaledVector(u,0.30*Math.cos(ext)).addScaledVector(w,0.30*Math.sin(ext)); h[k].x=0.045*s; }
+      const mid=h.L.clone().add(h.R).multiplyScalar(0.5); placeDB(db,mid.clone().add(V(0,-0.085,0)),V(0,1,0)); // tenu sous le disque du haut, l'haltère pend à la verticale
+      man.set({pelvis, up, fwd, hand:h, elbow:el, foot:legsSeated(0.46), elbowPole:{L:V(0,0,1),R:V(0,0,1)}, kneePole:kneeFwd, footDir:toesOut});
+    } else {
+      el.R=C.clone().add(V(0.12,0.26,0.07)); const dir=V(-0.45,0,-1).normalize(); // l'avant-bras descend derrière la tête, vers l'épaule opposée
+      h.R=el.R.clone().addScaledVector(u,0.30*Math.cos(ext)).addScaledVector(dir,0.30*Math.sin(ext)); const fd=h.R.clone().sub(el.R).normalize();
+      const ax=V(0,0,1).addScaledVector(fd,-fd.z).normalize(); placeDB(db,h.R,ax);
+      h.L=el.R.clone().add(V(-0.04,-0.09,0.06));
+      man.set({pelvis, up, fwd, hand:h, elbow:{R:el.R}, foot:legsSeated(0.46), elbowPole:{L:V(-1,-0.5,0.8),R:V(0,0,1)}, kneePole:kneeFwd, footDir:toesOut}); } }};
 }
-EX["Extension nuque haltère deux mains"]={ cam:{target:V(0,1.15,0),dist:3.2,h:1.45,ang:60}, build(scene){ return overheadDB(scene,false); }};
-EX["Extension nuque unilatérale haltère"]={ cam:{target:V(0,1.15,0),dist:3.2,h:1.45,ang:60}, build(scene){ return overheadDB(scene,true); }};
+EX["Extension nuque haltère deux mains"]={ cam:{target:V(0,1.2,0),dist:3.3,h:1.55,ang:125}, build(scene){ return overheadDB(scene,false); }};
+EX["Extension nuque unilatérale haltère"]={ cam:{target:V(0,1.2,0),dist:3.3,h:1.55,ang:125}, build(scene){ return overheadDB(scene,true); }};
 
 EX["Dips machine assis"]={ cam:{target:V(0,0.95,0),dist:3.2,h:1.35,ang:55}, build(scene){
   floor(scene); const man=Man(scene); seatBox(scene,0.50,0.02); const T=tiltVecs(-6), pelvis=V(0,0.63,0);
@@ -424,17 +438,20 @@ EX["Rowing haltère unilatéral"]={ cam:{target:V(0,0.75,0),dist:3.1,h:1.3,ang:8
     man.set({pelvis:B.pelvis, up:B.up, fwd:B.fwd, hand:{L:B.handL,R:H}, foot:B.foot, elbowPole:{L:V(-0.5,0,-1),R:V(0.25,0.6,-1)}, kneePole:B.kneePole, footDir:B.footDir}); }};
 }};
 
-function dipStation(scene,weighted){ floor(scene); const man=Man(scene);
-  for(const x of [-0.27,0.27]){ fixed(scene,0.025,V(x,1.25,-0.35),V(x,1.25,0.35)); fixed(scene,0.035,V(x,0,-0.35),V(x,1.25,-0.35)); fixed(scene,0.035,V(x,0,0.35),V(x,1.25,0.35)); }
-  let chain=null, plate=null; if(weighted){ chain=rod(scene,0.008,MAT.steel); plate=cyl(0.17,0.17,0.04,MAT.dark); scene.add(plate); }
-  return { man, pose(t){ const tilt=lerp(8,24,t), T=tiltVecs(tilt); const hand={L:V(-0.27,1.27,0),R:V(0.27,1.27,0)};
-    const C=V(0,lerp(1.27+0.555,1.27+0.30,t),lerp(-0.02,-0.12,t)); const pelvis=C.clone().addScaledVector(T.up,-0.5);
-    const A={L:pelvis.clone().add(V(-0.05,-0.62,-0.38)),R:pelvis.clone().add(V(0.05,-0.60,-0.42))};
-    if(weighted){ const w=pelvis.clone().addScaledVector(T.fwd,0.12).add(V(0,-0.05,0)); const pc=pelvis.clone().add(V(0,-0.40,0.07)); between(chain,w,pc.clone().add(V(0,0.17,0))); plate.position.copy(pc); plate.rotation.set(0,0,Math.PI/2); }
-    man.set({pelvis, up:T.up, fwd:T.fwd, hand, foot:A, elbowPole:{L:V(-0.15,0,-1),R:V(0.15,0,-1)}, kneePole:{L:V(0,0,1),R:V(0,0,1)}, footDir:{L:V(0,-0.7,-0.6),R:V(0,-0.7,-0.6)}}); }};
+function dipStation(scene,weighted){ floor(scene); const man=Man(scene); const by=1.27;
+  for(const x of [-0.27,0.27]){ fixed(scene,0.025,V(x,by-0.02,-0.40),V(x,by-0.02,0.40)); fixed(scene,0.035,V(x,0,-0.40),V(x,by-0.02,-0.40)); fixed(scene,0.035,V(x,0,0.40),V(x,by-0.02,0.40)); }
+  let chain=null, plate=null, belt=null; if(weighted){ chain=rod(scene,0.008,MAT.steel); plate=cyl(0.16,0.16,0.04,MAT.dark); scene.add(plate); belt=cyl(0.16,0.16,0.05,MAT.dark); belt.scale.set(1.05,1,0.82); scene.add(belt); }
+  return { man, pose(t){ const e=ease(t); const tilt=lerp(6,26,e), T=tiltVecs(tilt); const hand={L:V(-0.27,by,0),R:V(0.27,by,0)};
+    const C=V(0,lerp(by+0.565,by+0.33,e),lerp(-0.02,0.17,e)); const pelvis=C.clone().addScaledVector(T.up,-0.5);
+    const A={L:pelvis.clone().add(V(-0.06,-0.64,-0.30)),R:pelvis.clone().add(V(0.02,-0.66,-0.36))};
+    if(weighted){ belt.position.copy(pelvis.clone().addScaledVector(T.up,0.02)); belt.quaternion.setFromUnitVectors(V(0,1,0),T.up);
+      const w=pelvis.clone().addScaledVector(T.fwd,0.11); const pc=V(0,pelvis.y-0.60,pelvis.z+0.17); between(chain,w,pc.clone().add(V(0,0.16,0))); plate.position.copy(pc); plate.rotation.set(0,0,Math.PI/2); }
+    man.set({pelvis, up:T.up, fwd:T.fwd, hand, foot:A, elbowPole:{L:V(-0.25,0.1,-1),R:V(0.25,0.1,-1)}, kneePole:{L:V(0,-0.5,1),R:V(0,-0.5,1)}, footDir:{L:V(0,-0.8,-0.5),R:V(0,-0.8,-0.5)}}); }};
 }
-EX["Dips lestés"]={ cam:{target:V(0,1.2,0),dist:3.5,h:1.45,ang:60}, build(scene){ return dipStation(scene,true); }};
-EX["Dips (poids du corps)"]={ cam:{target:V(0,1.2,0),dist:3.5,h:1.45,ang:60}, build(scene){ return dipStation(scene,false); }};
+EX["Dips lestés"]={ cam:{target:V(0,1.15,0),dist:3.8,h:1.45,ang:72}, build(scene){ return dipStation(scene,true); }};
+EX["Dips (poids du corps)"]={ cam:{target:V(0,1.15,0),dist:3.8,h:1.45,ang:72}, build(scene){ return dipStation(scene,false); }};
+
+// Extensions nuque : assis buste droit, dossier court (s'arrête sous les épaules) pour que l'haltère passe derrière la tête
 
 // ---------- PULL ----------
 function pulldownBase(scene){ floor(scene); const man=Man(scene); seatBox(scene,0.455,0);
@@ -458,15 +475,30 @@ EX["Tractions (poids du corps)"]={ cam:{target:V(0,1.45,0),dist:4.2,h:1.6,ang:35
     man.set({pelvis, up:T.up, fwd:T.fwd, hand:{L:V(-0.38,by,0),R:V(0.38,by,0)}, foot:A, elbowPole:{L:V(-1,-1,0),R:V(1,-1,0)}, kneePole:{L:V(0,0,1),R:V(0,0,1)}, footDir:{L:V(0,-0.7,-0.6),R:V(0,-0.7,-0.6)}}); }};
 }};
 
-EX["Tirage horizontal coudes serrés"]={ cam:{target:V(0,0.75,0.3),dist:3.4,h:1.3,ang:70}, build(scene){
-  floor(scene); const man=Man(scene); const seat=box(0.36,0.07,1.1,MAT.pad); seat.position.set(0,0.42,0.1); scene.add(seat); fixed(scene,0.035,V(0,0.38,-0.3),V(0,0,-0.3)); fixed(scene,0.035,V(0,0.38,0.5),V(0,0,0.5));
-  const fp=box(0.42,0.3,0.04,MAT.steel); fp.position.set(0,0.28,0.66); fp.rotation.x=-12*D; scene.add(fp); fixed(scene,0.045,V(0,0,1.05),V(0,1.2,1.05));
-  const pul=cyl(0.05,0.05,0.03,MAT.steel); pul.rotation.z=Math.PI/2; pul.position.set(0,0.42,1.02); scene.add(pul);
-  const c=cable(scene), vb=rod(scene,0.018,MAT.dark), vL=rod(scene,0.014,MAT.dark), vR=rod(scene,0.014,MAT.dark);
-  return { man, pose(t){ const T=tiltVecs(lerp(12,-6,t)), pelvis=V(0,0.55,-0.08); const C=pelvis.clone().addScaledVector(T.up,0.5);
-    const hc=V(0,lerp(C.y-0.10,0.86,t),lerp(C.z+0.56,pelvis.z+0.24,t)); const hL=hc.clone().add(V(-0.06,0,0)), hR=hc.clone().add(V(0.06,0,0)), top=hc.clone().add(V(0,0,0.11));
-    between(c,V(0,0.42,1.0),top); between(vb,hL,hR); between(vL,hL,top); between(vR,hR,top);
-    man.set({pelvis, up:T.up, fwd:T.fwd, hand:{L:hL,R:hR}, foot:{L:V(-0.13,0.30,0.60),R:V(0.13,0.30,0.60)}, elbowPole:{L:V(-0.25,-0.3,-1),R:V(0.25,-0.3,-1)}, kneePole:{L:V(-0.1,1,0.2),R:V(0.1,1,0.2)}, footDir:{L:V(0,0.25,1),R:V(0,0.25,1)}}); }};
+EX["Tirage horizontal coudes serrés"]={ cam:{target:V(0,0.8,0.4),dist:4.0,h:1.45,ang:68}, build(scene){
+  floor(scene); const man=Man(scene);
+  const seat=box(0.36,0.08,0.95,MAT.pad); seat.position.set(0,0.46,-0.05); scene.add(seat);
+  const rail=box(0.12,0.06,1.85,MAT.steel); rail.position.set(0,0.03,0.33); scene.add(rail);
+  fixed(scene,0.04,V(0,0.42,-0.40),V(0,0.03,-0.40)); fixed(scene,0.04,V(0,0.42,0.30),V(0,0.03,0.30));
+  // repose-pieds inclinés
+  for(const x of [-0.15,0.15]){ const fp=box(0.13,0.30,0.04,MAT.steel); fp.position.set(x,0.30,0.72); fp.rotation.x=-18*D; scene.add(fp); fixed(scene,0.025,V(x,0.18,0.75),V(x,0.03,0.80)); }
+  fixed(scene,0.025,V(-0.15,0.03,0.80),V(0.15,0.03,0.80));
+  // tour à charges
+  const zt=1.22; const base=box(0.72,0.05,0.42,MAT.steel); base.position.set(0,0.025,zt); scene.add(base);
+  for(const x of [-0.27,0.27]) fixed(scene,0.04,V(x,0,zt),V(x,2.08,zt)); fixed(scene,0.04,V(-0.27,2.08,zt),V(0.27,2.08,zt));
+  for(const x of [-0.08,0.08]) fixed(scene,0.008,V(x,0.05,zt),V(x,1.85,zt),MAT.steel);
+  const st=box(0.30,0.55,0.14,MAT.dark); st.position.set(0,0.33,zt); scene.add(st); const mv=box(0.30,0.20,0.14,MAT.dark); scene.add(mv);
+  const pul=[V(0,0.40,0.95),V(0,0.40,zt+0.13),V(0,1.98,zt+0.13),V(0,1.98,zt)];
+  for(const p of pul){ const w=cyl(0.045,0.045,0.03,MAT.steel); w.rotation.z=Math.PI/2; w.position.copy(p); scene.add(w); }
+  fixed(scene,0.03,V(0,0.03,0.95),V(0,0.36,0.95));
+  const c=cable(scene), c2=cable(scene), c3=cable(scene), c4=cable(scene), vb=rod(scene,0.018,MAT.dark), vL=rod(scene,0.014,MAT.dark), vR=rod(scene,0.014,MAT.dark);
+  between(c2,pul[0],pul[1]); between(c3,pul[1],pul[2]); between(c4,pul[2],pul[3]);
+  const c5=cable(scene);
+  return { man, pose(t){ const T=tiltVecs(lerp(12,-6,t)), pelvis=V(0,0.61,-0.10); const C=pelvis.clone().addScaledVector(T.up,0.5);
+    const hc=V(0,lerp(C.y-0.10,0.92,t),lerp(C.z+0.56,pelvis.z+0.24,t)); const hL=hc.clone().add(V(-0.06,0,0)), hR=hc.clone().add(V(0.06,0,0)), top=hc.clone().add(V(0,0,0.11));
+    between(c,pul[0],top); between(vb,hL,hR); between(vL,hL,top); between(vR,hR,top);
+    const y0=0.605+0.30*t; mv.position.set(0,y0+0.10,zt); between(c5,pul[3],V(0,y0+0.20,zt));
+    man.set({pelvis, up:T.up, fwd:T.fwd, hand:{L:hL,R:hR}, foot:{L:V(-0.15,0.30,0.64),R:V(0.15,0.30,0.64)}, elbowPole:{L:V(-0.25,-0.3,-1),R:V(0.25,-0.3,-1)}, kneePole:{L:V(-0.1,1,0.2),R:V(0.1,1,0.2)}, footDir:{L:V(0,0.3,1),R:V(0,0.3,1)}}); }};
 }};
 
 EX["Pull-over poulie"]={ cam:{target:V(0,1.1,0.1),dist:3.6,h:1.4,ang:72}, build(scene){
@@ -510,15 +542,31 @@ EX["Rowing haltères buste appuyé"]={ cam:{target:V(0,0.9,0.2),dist:3.3,h:1.5,a
     P.man.set({pelvis:P.pelvis, up:P.up, fwd:P.fwd, hand:h, foot:P.foot, elbowPole:{L:V(-0.3,1,-0.6),R:V(0.3,1,-0.6)}, kneePole:{L:V(0,0,1),R:V(0,0,1)}}); }};
 }};
 
-EX["Rowing machine assis poitrine appuyée"]={ cam:{target:V(0,1.0,0.2),dist:3.4,h:1.4,ang:65}, build(scene){
-  floor(scene); const man=Man(scene); seatBox(scene,0.50,-0.05); const pad=box(0.32,0.42,0.07,MAT.pad); pad.position.set(0,1.02,0.22); scene.add(pad); fixed(scene,0.04,V(0,0.8,0.27),V(0,0,0.27));
-  const fr=box(0.4,0.04,0.2,MAT.steel); fr.position.set(0,0.15,0.40); scene.add(fr); for(const x of [-0.42,0.42]) fixed(scene,0.04,V(x,0,0.75),V(x,1.95,0.75));
-  const lev=[rod(scene,0.03,MAT.steel),rod(scene,0.03,MAT.steel)], gr=[rod(scene,0.022,MAT.dark),rod(scene,0.022,MAT.dark)];
-  const T=tiltVecs(6), pelvis=V(0,0.63,-0.08);
-  return { man, pose(t){ const C=pelvis.clone().addScaledVector(T.up,0.5); const h={}; let i=0;
-    for(const [k,s] of [['L',-1],['R',1]]){ h[k]=V(0.22*s,lerp(C.y-0.12,1.0,t),lerp(C.z+0.57,C.z+0.05,t));
-      between(lev[i],V(0.42*s,1.9,0.75),h[k].clone().add(V(0.04*s,0.08,0))); between(gr[i],h[k].clone().add(V(0,-0.07,0)),h[k].clone().add(V(0,0.07,0))); i++; }
-    man.set({pelvis, up:T.up, fwd:T.fwd, hand:h, foot:{L:V(-0.14,0.20,0.38),R:V(0.14,0.20,0.38)}, elbowPole:{L:V(-0.2,-0.3,-1),R:V(0.2,-0.3,-1)}, kneePole:kneeFwd}); }};
+EX["Rowing machine assis poitrine appuyée"]={ cam:{target:V(0,0.8,0.15),dist:3.7,h:1.5,ang:-62}, build(scene){
+  floor(scene); const man=Man(scene);
+  // châssis au sol
+  for(const x of [-0.58,0.58]){ const r=box(0.07,0.06,1.55,MAT.steel); r.position.set(x,0.03,0.22); scene.add(r); }
+  for(const z of [-0.52,0.96]){ const r=box(1.23,0.06,0.07,MAT.steel); r.position.set(0,0.03,z); scene.add(r); }
+  const spine=box(0.08,0.06,1.48,MAT.steel); spine.position.set(0,0.03,0.22); scene.add(spine);
+  // siège
+  const seat=box(0.36,0.08,0.36,MAT.pad); seat.position.set(0,0.50,-0.14); scene.add(seat); fixed(scene,0.04,V(0,0.46,-0.14),V(0,0.03,-0.14)); fixed(scene,0.03,V(0,0.30,-0.14),V(0,0.03,-0.42));
+  // coussin poitrine sur son montant
+  const T=tiltVecs(8), pelvis=V(0,0.65,-0.14);
+  const pad=box(0.30,0.40,0.07,MAT.pad); pad.position.set(0,1.0,0.115); pad.rotation.x=8*D; scene.add(pad);
+  fixed(scene,0.035,V(0,0.92,0.17),V(0,0.40,0.26)); fixed(scene,0.04,V(0,0.40,0.26),V(0,0.03,0.30));
+  // repose-pieds
+  const fb=box(0.56,0.04,0.16,MAT.steel); fb.position.set(0,0.16,0.36); scene.add(fb); fixed(scene,0.03,V(0,0.14,0.36),V(0,0.03,0.36));
+  // pivots des leviers + montants
+  const piv={L:V(-0.46,0.34,0.28),R:V(0.46,0.34,0.28)};
+  for(const s of [-1,1]){ fixed(scene,0.045,V(0.46*s,0.03,0.28),V(0.46*s,0.34,0.28)); fixed(scene,0.04,V(0.46*s,0.03,0.70),V(0.46*s,0.34,0.28)); const hub=cyl(0.06,0.06,0.10,MAT.dark); hub.rotation.z=Math.PI/2; hub.position.copy(piv[s<0?'L':'R']); scene.add(hub); }
+  const parts={}; for(const k of ['L','R']) parts[k]={lev:rod(scene,0.032,MAT.steel), con:rod(scene,0.028,MAT.steel), grip:rod(scene,0.022,MAT.dark), horn:rod(scene,0.025,MAT.steel), plate:cyl(0.20,0.20,0.045,MAT.dark)};
+  for(const k of ['L','R']){ parts[k].plate.rotation.z=Math.PI/2; scene.add(parts[k].plate); }
+  const R=0.743, a0=Math.atan2(0.22,0.71), a1=Math.atan2(-0.28,0.69);   // angle du levier (0 = vertical), positif = vers l'avant
+  return { man, pose(t){ const a=lerp(a0,a1,t); const h={};
+    for(const [k,s] of [['L',-1],['R',1]]){ const P=piv[k], u=V(0,Math.cos(a),Math.sin(a)), H=P.clone().addScaledVector(u,R); H.x=0.22*s; h[k]=H;
+      const Q=V(0.46*s,H.y+0.07,H.z); between(parts[k].lev,P,Q); between(parts[k].con,Q,H.clone().add(V(0,0.07,0))); between(parts[k].grip,H.clone().add(V(0,-0.08,0)),H.clone().add(V(0,0.08,0)));
+      const hd=V(0,-Math.sin(a),Math.cos(a)); const he=P.clone().addScaledVector(hd,0.30).add(V(0.10*s,0,0)); between(parts[k].horn,P.clone().add(V(0.05*s,0,0)),he.clone().add(V(0.06*s,0,0))); parts[k].plate.position.copy(he); }
+    man.set({pelvis, up:T.up, fwd:T.fwd, hand:h, foot:{L:V(-0.19,0.21,0.34),R:V(0.19,0.21,0.34)}, elbowPole:{L:V(-0.25,-0.5,-1),R:V(0.25,-0.5,-1)}, kneePole:{L:V(-0.3,0.6,1),R:V(0.3,0.6,1)}, footDir:{L:V(-0.1,0,1),R:V(0.1,0,1)}}); }};
 }};
 
 EX["Reverse pec deck"]={ cam:{target:V(0,1.1,0.1),dist:3.4,h:1.6,ang:25}, build(scene){
@@ -606,27 +654,32 @@ EX["Hack squat"]={ cam:{target:V(0,0.85,0),dist:3.6,h:1.3,ang:72}, build(scene){
 
 EX["Presse à cuisses"]={ cam:{target:V(0,0.8,0.35),dist:3.8,h:1.4,ang:78}, build(scene){
   floor(scene); const man=Man(scene); const s=V(0,Math.sin(45*D),Math.cos(45*D)), pn=V(0,Math.cos(45*D),-Math.sin(45*D));
-  const seat=box(0.42,0.07,0.42,MAT.pad); seat.position.set(0,0.45,0.0); seat.rotation.x=-12*D; scene.add(seat);
-  const back=box(0.42,0.08,0.75,MAT.pad); back.position.set(0,0.75,-0.38); back.rotation.x=-50*D; scene.add(back); const base=box(0.8,0.05,2.2,MAT.steel); base.position.set(0,0.025,0.5); scene.add(base);
+  const T={up:V(0,Math.sin(48*D),-Math.cos(48*D)),fwd:V(0,Math.cos(48*D),Math.sin(48*D))}; const pelvis=V(0,0.60,-0.05); const right=V(1,0,0);
+  // dossier collé au dos (épaisseur du buste ~0.14) et assise sous les fessiers
+  const back=box(0.44,0.78,0.08,MAT.pad); back.position.copy(pelvis.clone().addScaledVector(T.up,0.36).addScaledVector(T.fwd,-0.185)); back.quaternion.copy(basisQuat(right,T.up,T.fwd)); scene.add(back);
+  const sUp=V(0,Math.cos(14*D),Math.sin(14*D)), sF=V(0,-Math.sin(14*D),Math.cos(14*D));
+  const seat=box(0.44,0.08,0.40,MAT.pad); seat.position.copy(pelvis.clone().add(V(0,-0.155,0.13))); seat.quaternion.copy(basisQuat(right,sUp,sF)); scene.add(seat);
+  const bk=back.position.clone().addScaledVector(T.fwd,-0.05); fixed(scene,0.04,bk,V(0,0.05,bk.z)); fixed(scene,0.04,seat.position.clone().add(V(0,-0.05,0)),V(0,0.05,seat.position.z));
+  const base=box(0.8,0.05,2.2,MAT.steel); base.position.set(0,0.025,0.5); scene.add(base);
   for(const x of [-0.42,0.42]) fixed(scene,0.045,V(x,0.25,0.15),V(x,0.25,0.15).addScaledVector(s,2.0));
   const sled=box(0.7,0.06,0.55,MAT.steel); scene.add(sled); const pls=[cyl(0.22,0.22,0.05,MAT.dark),cyl(0.22,0.22,0.05,MAT.dark)]; pls.forEach(p=>scene.add(p));
-  const T={up:V(0,Math.sin(48*D),-Math.cos(48*D)),fwd:V(0,Math.cos(48*D),Math.sin(48*D))}; const pelvis=V(0,0.60,-0.05);
   return { man, pose(t){ const hip=pelvis.clone().add(V(0,-0.04,0.02)); const L=lerp(0.80,0.42,t); const ft=hip.clone().addScaledVector(s,L).add(V(0,0.02,0.02));
     sled.position.copy(ft.clone().addScaledVector(s,0.06)); sled.quaternion.copy(basisQuat(V(1,0,0),pn,s));
     pls.forEach((p,i)=>{ p.position.copy(ft.clone().addScaledVector(s,0.10).add(V(i?0.47:-0.47,0,0))); p.rotation.set(0,0,Math.PI/2); });
-    const C=pelvis.clone().addScaledVector(T.up,0.5);
-    man.set({pelvis, up:T.up, fwd:T.fwd, hand:{L:pelvis.clone().add(V(-0.28,0.02,0.10)),R:pelvis.clone().add(V(0.28,0.02,0.10))}, foot:{L:ft.clone().add(V(-0.15,0,0)),R:ft.clone().add(V(0.15,0,0))},
+    man.set({pelvis, up:T.up, fwd:T.fwd, hand:{L:pelvis.clone().add(V(-0.29,-0.02,0.12)),R:pelvis.clone().add(V(0.29,-0.02,0.12))}, foot:{L:ft.clone().add(V(-0.15,0,0)),R:ft.clone().add(V(0.15,0,0))},
       elbowPole:{L:V(-1,0,0),R:V(1,0,0)}, kneePole:{L:V(-0.2,0.7,-0.7),R:V(0.2,0.7,-0.7)}, footDir:{L:pn.clone().add(V(-0.15,0,0)),R:pn.clone().add(V(0.15,0,0))}}); }};
 }};
 
 function legMachine(scene){ floor(scene); const man=Man(scene); seatBox(scene,0.50,0.12,0.42); const back=box(0.4,0.65,0.07,MAT.pad); back.position.set(0,0.92,-0.15); back.rotation.x=-10*D; scene.add(back);
   for(const x of [-0.3,0.3]) fixed(scene,0.04,V(x,0,0.38),V(x,0.62,0.38)); return man; }
 EX["Leg extension"]={ cam:{target:V(0,0.6,0.2),dist:3.2,h:1.15,ang:78}, build(scene){
-  const man=legMachine(scene); const T=tiltVecs(-10), pelvis=V(0,0.63,-0.03); const pad=cyl(0.05,0.05,0.36,MAT.pad); pad.rotation.z=Math.PI/2; scene.add(pad); const lev=rod(scene,0.03,MAT.steel);
-  return { man, pose(t){ const K=V(0,0.60,0.40), th=lerp(0,82,t)*D; const ank=K.clone().add(V(0,-0.42*Math.cos(th),0.42*Math.sin(th)));
-    pad.position.copy(ank.clone().add(V(0,0.02*Math.sin(th),0.07*Math.cos(th)).add(V(0,-0.0,0)))); between(lev,V(0.30,0.60,0.40),pad.position.clone().add(V(0.18,0,0)));
+  const man=legMachine(scene); const T=tiltVecs(-10), pelvis=V(0,0.63,-0.03); const pad=cyl(0.05,0.05,0.36,MAT.pad); pad.rotation.z=Math.PI/2; scene.add(pad); const lev=rod(scene,0.03,MAT.steel), arm=rod(scene,0.025,MAT.steel);
+  return { man, pose(t){ const K=V(0,0.60,0.40), th=lerp(0,82,t)*D; const d=V(0,-Math.cos(th),Math.sin(th)), n=V(0,Math.sin(th),Math.cos(th)); const ank=K.clone().addScaledVector(d,0.42);
+    // le boudin repose sur le devant du tibia, au-dessus de la cheville (pas sur le pied)
+    pad.position.copy(K.clone().addScaledVector(d,0.33).addScaledVector(n,0.10)); const pv=V(0.30,0.60,0.40); const pe=pad.position.clone().add(V(0.19,0,0));
+    between(lev,pv,pv.clone().addScaledVector(d,0.33).addScaledVector(n,0.10)); between(arm,pv.clone().addScaledVector(d,0.33).addScaledVector(n,0.10),pe);
     man.set({pelvis, up:T.up, fwd:T.fwd, hand:{L:V(-0.28,0.58,0.05),R:V(0.28,0.58,0.05)}, foot:{L:ank.clone().add(V(-0.11,0,0)),R:ank.clone().add(V(0.11,0,0))},
-      elbowPole:{L:V(-1,0,0),R:V(1,0,0)}, kneePole:{L:V(0,1,0.2),R:V(0,1,0.2)}, footDir:{L:V(0,Math.sin(th),Math.cos(th)),R:V(0,Math.sin(th),Math.cos(th))}}); }};
+      elbowPole:{L:V(-1,0,0),R:V(1,0,0)}, kneePole:{L:V(0,1,0.2),R:V(0,1,0.2)}, footDir:{L:n.clone().addScaledVector(d,-0.15),R:n.clone().addScaledVector(d,-0.15)}}); }};
 }};
 EX["Leg curl assis"]={ cam:{target:V(0,0.6,0.2),dist:3.2,h:1.15,ang:78}, build(scene){
   const man=legMachine(scene); const T=tiltVecs(-14), pelvis=V(0,0.63,-0.03); const tp=cyl(0.055,0.055,0.40,MAT.pad); tp.rotation.z=Math.PI/2; tp.position.set(0,0.76,0.30); scene.add(tp);
@@ -646,14 +699,15 @@ EX["Leg curl allongé"]={ cam:{target:V(0,0.7,0.2),dist:3.4,h:1.3,ang:80}, build
       elbowPole:{L:V(-0.4,-1,0),R:V(0.4,-1,0)}, kneePole:{L:V(0,-1,0),R:V(0,-1,0)}, footDir:{L:V(0,-Math.cos(th),Math.sin(th)),R:V(0,-Math.cos(th),Math.sin(th))}}); }};
 }};
 
-function hinge(scene,smith){ floor(scene); const man=Man(scene); const zb=0.08; let setBar=null, dbs=null;
+function hinge(scene,smith){ floor(scene); const man=Man(scene); const zf=0.0, zb=0.13; let setBar=null, dbs=null;
   if(smith) setBar=smithFrame(scene,zb); else dbs=[dumbbell(scene),dumbbell(scene)];
-  return { man, pose(t){ const tilt=lerp(4,72,t), T=tiltVecs(tilt), a=tilt*D; const py=lerp(0.93,0.80,t); const pelvis=V(0,py,zb-0.5*Math.sin(a)-0.02);
-    const C=pelvis.clone().addScaledVector(T.up,0.5); const yb=C.y-0.57; const h={L:V(-0.22,yb,zb),R:V(0.22,yb,zb)};
-    if(smith) setBar(yb); else { placeDB(dbs[0],h.L,V(1,0,0)); placeDB(dbs[1],h.R,V(1,0,0)); }
-    man.set({pelvis, up:T.up, fwd:T.fwd, hand:h, foot:{L:V(-0.14,0.07,zb-0.03),R:V(0.14,0.07,zb-0.03)}, elbowPole:{L:V(-1,0,-0.3),R:V(1,0,-0.3)}, kneePole:kneeFwd, footDir:toesOut}); }}; }
-EX["Soulevé de terre Smith"]={ cam:{target:V(0,0.85,0),dist:3.6,h:1.3,ang:70}, build(scene){ return hinge(scene,true); }};
-EX["Soulevé de terre roumain haltères"]={ cam:{target:V(0,0.85,0),dist:3.4,h:1.3,ang:70}, build(scene){ return hinge(scene,false); }};
+  return { man, pose(t){ const tilt=lerp(3,74,t), T=tiltVecs(tilt); const pelvis=V(0,lerp(0.915,0.86,t),lerp(zf-0.02,zf-0.30,t));
+    const C=pelvis.clone().addScaledVector(T.up,0.5); const L=0.575; const hz=zb; const h={};
+    for(const [k,s] of [['L',-1],['R',1]]){ const S=C.clone().add(V(0.2*s,0,0)); const dz=hz-S.z, dx=0.03*s; const hy=S.y-Math.sqrt(Math.max(0.01,L*L-dz*dz-dx*dx)); h[k]=V(S.x-dx,hy,hz); }
+    if(smith){ setBar(h.L.y); h.L.x=-0.22; h.R.x=0.22; } else { h.L.x=-0.17; h.R.x=0.17; placeDB(dbs[0],h.L,V(1,0,0)); placeDB(dbs[1],h.R,V(1,0,0)); }
+    man.set({pelvis, up:T.up, fwd:T.fwd, hand:h, foot:{L:V(-0.13,0.07,zf-0.03),R:V(0.13,0.07,zf-0.03)}, elbowPole:{L:V(-0.3,0,-1),R:V(0.3,0,-1)}, kneePole:{L:V(-0.1,0,1),R:V(0.1,0,1)}, footDir:{L:V(-0.08,0,1),R:V(0.08,0,1)}}); }}; }
+EX["Soulevé de terre Smith"]={ cam:{target:V(0,0.85,0),dist:3.7,h:1.3,ang:72}, build(scene){ return hinge(scene,true); }};
+EX["Soulevé de terre roumain haltères"]={ cam:{target:V(0,0.85,0),dist:3.4,h:1.3,ang:72}, build(scene){ return hinge(scene,false); }};
 
 EX["Fentes bulgares"]={ cam:{target:V(0,0.8,0),dist:3.4,h:1.25,ang:75}, build(scene){
   floor(scene); const man=Man(scene); const b=box(0.30,0.07,0.6,MAT.pad); b.position.set(0,0.44,-0.78); scene.add(b); fixed(scene,0.035,V(0,0.4,-0.78),V(0,0,-0.78)); const dbs=[dumbbell(scene),dumbbell(scene)];
@@ -661,12 +715,26 @@ EX["Fentes bulgares"]={ cam:{target:V(0,0.8,0),dist:3.4,h:1.25,ang:75}, build(sc
     const h={L:C.clone().add(V(-0.25,-0.58,0.03)),R:C.clone().add(V(0.25,-0.58,0.03))}; placeDB(dbs[0],h.L,V(0,0,1)); placeDB(dbs[1],h.R,V(0,0,1));
     man.set({pelvis, up:T.up, fwd:T.fwd, hand:h, foot:{L:V(-0.12,0.07,0.38),R:V(0.12,0.52,-0.62)}, elbowPole:{L:V(-1,0,-0.3),R:V(1,0,-0.3)}, kneePole:{L:V(-0.1,0,1),R:V(0,-1,0.3)}, footDir:{L:V(-0.1,0,1),R:V(0,-0.2,-1)}}); }};
 }};
-EX["Fentes marchées haltères"]={ cam:{target:V(0,0.8,0),dist:3.4,h:1.25,ang:75}, build(scene){
-  floor(scene); const man=Man(scene); const dbs=[dumbbell(scene),dumbbell(scene)];
-  return { man, pose(t){ const T=tiltVecs(4), pelvis=V(0,lerp(0.90,0.58,t),-0.04); const C=pelvis.clone().addScaledVector(T.up,0.5);
+EX["Fentes marchées haltères"]={ loop:6.0, cam:{target:V(0,0.75,0),dist:4.3,h:1.3,ang:78}, build(scene){
+  floor(scene); const man=Man(scene); const dbs=[dumbbell(scene),dumbbell(scene)]; const SL=0.85;
+  function step(s,z0){ // s : 0..1 d'un pas ; renvoie bassin, pied avant, pied arrière (repères relatifs)
+    let pz,py,lead,trail,tdir;
+    if(s<0.35){ const a=ease(s/0.35); pz=lerp(0,0.42,a); py=lerp(0.93,0.82,a); lead=V(0,0.07+0.13*Math.sin(Math.PI*a),lerp(0,SL,a)); trail=V(0,lerp(0.07,0.09,a),0); tdir=slerpDir(V(0,0,1),V(0,-0.35,1),a); }
+    else if(s<0.60){ const b=ease((s-0.35)/0.25); pz=lerp(0.42,0.45,b); py=lerp(0.82,0.56,b); lead=V(0,0.07,SL); trail=V(0,lerp(0.09,0.11,b),0); tdir=slerpDir(V(0,-0.35,1),V(0,-0.62,1),b); }
+    else if(s<0.80){ const c=ease((s-0.60)/0.20); pz=lerp(0.45,0.62,c); py=lerp(0.56,0.80,c); lead=V(0,0.07,SL); trail=V(0,lerp(0.11,0.16,c),0); tdir=slerpDir(V(0,-0.62,1),V(0,-1,0.55),c); }
+    else { const d=ease((s-0.80)/0.20); pz=lerp(0.62,SL,d); py=lerp(0.80,0.93,d); lead=V(0,0.07,SL); trail=V(0,lerp(0.16,0.07,d)+0.12*Math.sin(Math.PI*d),lerp(0,SL,d)); tdir=slerpDir(V(0,-1,0.55),V(0,0,1),d); }
+    return {pelvis:V(0,py,z0+pz), lead:lead.add(V(0,0,z0)), trail:trail.add(V(0,0,z0)), tdir, low:s>=0.35&&s<0.80};
+  }
+  return { man, pose(t){ const first=t<0.5, s=first?t*2:(t-0.5)*2, z0=first?-SL:0; const r=step(s,z0);
+    const LK=first?'L':'R', TK=first?'R':'L'; const foot={}, fdir={}, kp={};
+    foot[LK]=r.lead.clone().setX(LK==='L'?-0.12:0.12); foot[TK]=r.trail.clone().setX(TK==='L'?-0.12:0.12);
+    fdir[LK]=V(0,0,1); fdir[TK]=r.tdir; kp[LK]=V(0,0.3,1); kp[TK]=V(0,-1,0.35);
+    const T=tiltVecs(4), C=r.pelvis.clone().addScaledVector(T.up,0.5);
     const h={L:C.clone().add(V(-0.25,-0.58,0.02)),R:C.clone().add(V(0.25,-0.58,0.02))}; placeDB(dbs[0],h.L,V(0,0,1)); placeDB(dbs[1],h.R,V(0,0,1));
-    man.set({pelvis, up:T.up, fwd:T.fwd, hand:h, foot:{L:V(-0.12,0.07,0.40),R:V(0.12,0.12,-0.50)}, elbowPole:{L:V(-1,0,-0.3),R:V(1,0,-0.3)}, kneePole:{L:V(-0.1,0,1),R:V(0,-0.3,1)}, footDir:{L:V(-0.1,0,1),R:V(0,-0.6,1)}}); }};
+    man.set({pelvis:r.pelvis, up:T.up, fwd:T.fwd, hand:h, foot, elbowPole:{L:V(-1,0,-0.3),R:V(1,0,-0.3)}, kneePole:kp, footDir:fdir}); }};
 }};
+
+// Soulevé de terre roumain : genoux légèrement fléchis et fixes, hanches vers l'arrière, dos plat, charge qui frôle les jambes
 
 function adMachine(scene,abduct){ floor(scene); const man=Man(scene); seatBox(scene,0.50,0.05,0.42); const back=box(0.4,0.65,0.07,MAT.pad); back.position.set(0,0.95,-0.18); back.rotation.x=-12*D; scene.add(back);
   const pads=[box(0.06,0.22,0.16,MAT.pad),box(0.06,0.22,0.16,MAT.pad)]; pads.forEach(p=>scene.add(p)); const fr=[rod(scene,0.03,MAT.steel),rod(scene,0.03,MAT.steel)];
@@ -744,12 +812,16 @@ EX["Étirement triceps au-dessus de la tête"]={ cam:{target:V(0,1.3,0),dist:3.0
   floor(scene); const man=Man(scene);
   return { man, pose(t){ const E=V(lerp(0.12,0.08,t),1.72,-0.02); const H=V(lerp(0.0,-0.04,t),1.50,-0.12);
     man.set({...STAND, hand:{L:E.clone().add(V(-0.03,0.04,0.03)),R:H}, elbow:{R:E}, foot:feetStand(0.14), elbowPole:{L:V(-1,0.5,0.5),R:V(0,1,0)}, kneePole:kneeFwd, footDir:toesOut}); }}; }};
-EX["Livre ouvert (rotation thoracique)"]={ cam:{target:V(-0.15,0.2,0.1),dist:2.6,h:1.75,ang:-110}, build(scene){
-  floor(scene); const man=Man(scene); const pelvis=V(0,0.17,0.35), up=V(0,0,-1);
-  return { man, pose(t){ const fwd=slerpDir(V(-1,0,0),V(-0.35,0.94,0),t*0.75); const right=new THREE.Vector3().crossVectors(up,fwd).normalize(); const C=pelvis.clone().addScaledVector(up,0.5);
-    const SL=C.clone().addScaledVector(right,-0.2), SR=C.clone().addScaledVector(right,0.2); const hL=V(-0.55,0.10,C.z+0.02);
-    const hR=SR.clone().addScaledVector(slerpDir(V(-1,-0.15,0),V(0.9,-0.2,0),t),0.55); if(hR.y<0.08) hR.y=0.08;
-    man.set({pelvis, up, fwd, hand:{L:hL,R:hR}, foot:{L:V(-0.45,0.07,0.78),R:V(-0.45,0.20,0.78)}, elbowPole:{L:V(0,-1,0),R:V(0,1,0)}, kneePole:{L:V(-1,0,0),R:V(-1,0.2,0)}, footDir:{L:V(0,0,1),R:V(0,0,1)}}); }}; }};
+EX["Livre ouvert (rotation thoracique)"]={ cam:{target:V(-0.15,0.2,0.0),dist:2.5,h:2.2,ang:260}, build(scene){
+  floor(scene); const man=Man(scene); const fwd=V(-1,0,0);
+  return { man, pose(t){ const e=ease(t), tw=lerp(0,140,e)*D, up=V(0,lerp(0.20,0.06,e),-1).normalize(), pelvis=V(0,0.17,0.25);
+    const base={pelvis, up, fwd, twist:TW*tw, elbowPole:{L:V(0,-1,0),R:V(0,1,0)}, kneePole:{L:V(-1,-0.2,0),R:V(-1,0.2,0)}, footDir:{L:V(0,0,1),R:V(0,0,1)},
+      foot:{L:V(-0.42,0.07,0.66),R:V(-0.42,0.20,0.66)}};
+    const J=man.set({...base, hand:{L:V(-0.6,0.07,-0.2),R:V(-0.6,0.2,-0.2)}});
+    const hl=V(-0.57,0.07,-0.27), d0=hl.clone().add(V(0,0.09,0)).sub(J.SR).normalize();
+    const hr=J.SR.clone().addScaledVector(slerpDir(d0,J.cn,Math.min(1,e*1.4)),0.57); if(hr.y<0.07) hr.y=0.07;
+    man.set({...base, hand:{L:hl,R:hr}}); }};
+}};
 EX["Suspension passive"]={ cam:{target:V(0,1.4,0),dist:4.0,h:1.6,ang:35}, build(scene){
   floor(scene); const man=Man(scene); const by=2.25; fixed(scene,0.018,V(-0.7,by,0),V(0.7,by,0)); for(const x of [-0.7,0.7]) fixed(scene,0.04,V(x,0,0),V(x,by+0.1,0));
   return { man, pose(t){ const sh=lerp(0.03,0.06,t); const C=V(0,by-0.555-sh+0.02,0), pelvis=C.clone().add(V(0,-0.5,0));
@@ -763,14 +835,22 @@ EX["Étirement biceps au mur"]={ cam:{target:V(0.2,1.1,0),dist:3.2,h:1.5,ang:-30
   floor(scene); const man=Man(scene); wall(scene,0.80,0,1.6,'x');
   return { man, pose(t){ const rot=lerp(0,25,t)*D; const fwd=V(-Math.sin(rot),0,Math.cos(rot));
     man.set({pelvis:V(0,0.93,0), up:V(0,1,0), fwd, hand:{L:V(-0.24,0.92,0.06),R:V(0.76,1.40,-0.18)}, foot:feetStand(0.14), elbowPole:{L:V(-1,0,0),R:V(0,-1,0)}, kneePole:kneeFwd, footDir:toesOut}); }}; }};
-EX["Étirement avant-bras"]={ cam:{target:V(0,1.25,0.2),dist:2.8,h:1.5,ang:45}, build(scene){
+EX["Étirement avant-bras"]={ cam:{target:V(0.1,1.25,0.35),dist:2.2,h:1.45,ang:100}, build(scene){
   floor(scene); const man=Man(scene);
-  return { man, pose(t){ const hr=V(0.17,1.38,0.57);
-    man.set({...STAND, hand:{L:hr.clone().add(V(-0.05,lerp(-0.02,-0.07,t),0.06)),R:hr}, foot:feetStand(0.14), elbowPole:{L:V(-1,-1,0),R:V(0,-1,0)}, kneePole:kneeFwd, footDir:toesOut}); }}; }};
-EX["Chat-vache"]={ cam:{target:V(0,0.4,0.2),dist:3.0,h:1.1,ang:90}, build(scene){
-  floor(scene); const man=Man(scene);
-  return { man, pose(t){ const bend=lerp(-0.35,0.42,t); const pelvis=V(0,lerp(0.52,0.55,t),-0.08); const up=V(0,lerp(0.12,-0.05,t),1).normalize(), fwd=V(0,-1,0.05).normalize();
-    man.set({pelvis, up, fwd, bend, hand:{L:V(-0.2,0.06,0.48),R:V(0.2,0.06,0.48)}, foot:{L:V(-0.12,0.07,-0.50),R:V(0.12,0.07,-0.50)}, elbowPole:{L:V(0,0,-1),R:V(0,0,-1)}, kneePole:{L:V(0,-1,0.3),R:V(0,-1,0.3)}, footDir:{L:V(0,-0.2,-1),R:V(0,-0.2,-1)}}); }}; }};
+  return { man, pose(t){ const e=ease(t); const hr=V(0.13,1.36,0.60); const a=lerp(0,70,e)*D; // angle d'extension du poignet
+    const dirR=V(0,-Math.sin(a),Math.cos(a)), nR=V(0,Math.cos(a),Math.sin(a)); // doigts : vers l'avant puis vers le bas ; paume vers le haut puis vers l'avant
+    const tip=hr.clone().addScaledVector(dirR,0.09); const hl=tip.clone().addScaledVector(nR,0.035).add(V(-0.02,0,0)); // la main gauche appuie sur les doigts côté paume
+    man.set({...STAND, hand:{L:hl,R:hr}, palm:{R:{dir:dirR,normal:nR},L:{dir:V(0.6,0,-0.2).addScaledVector(nR,-0.3),normal:nR.clone().negate()}}, foot:feetStand(0.14), elbowPole:{L:V(-1,-1,0),R:V(0.3,-1,0)}, kneePole:kneeFwd, footDir:toesOut}); }};
+}};
+// Chat-vache : mains et genoux fixes ; c'est la colonne qui s'arrondit (chat) ou se creuse (vache), la tête suit
+EX["Chat-vache"]={ cam:{target:V(0,0.45,0.0),dist:3.0,h:1.05,ang:90}, build(scene){
+  floor(scene); const man=Man(scene); const down=V(0,-1,0), eD=V(0,0.12,0.46).normalize(), n=V(0,0.46,-0.12).normalize(), Sc=V(0,0.62,0.24);
+  return { man, pose(t){ const e=ease(t); // 0 = vache (dos creusé, tête haute), 1 = chat (dos rond, tête basse)
+    const al=lerp(-22,25,e)*D; const P=Sc.clone().addScaledVector(eD,-0.5*Math.cos(al));
+    const u=eD.clone().multiplyScalar(Math.cos(al)).addScaledVector(n,Math.sin(al)).normalize();
+    man.set({pelvis:P, up:u, fwd:down, bend:2*al, hand:{L:V(-0.2,0.06,0.25),R:V(0.2,0.06,0.25)}, foot:{L:V(-0.12,0.07,P.z-0.46),R:V(0.12,0.07,P.z-0.46)}, elbowPole:{L:V(0,0,-1),R:V(0,0,-1)}, kneePole:{L:V(0,-1,0.3),R:V(0,-1,0.3)}, footDir:{L:V(0,-0.2,-1),R:V(0,-0.2,-1)}}); }};
+}};
+// Pigeon : jambe avant pliée en travers devant le bassin, jambe arrière tendue, buste qui se penche en avant
 EX["Fente basse (fléchisseurs de hanche)"]={ cam:{target:V(0,0.6,0),dist:3.2,h:1.2,ang:80}, build(scene){
   floor(scene); const man=Man(scene);
   return { man, pose(t){ const pelvis=V(0,lerp(0.50,0.46,t),lerp(-0.08,0.04,t)); const C=pelvis.clone().add(V(0,0.5,0));
@@ -783,10 +863,13 @@ EX["Étirement ischios sur banc"]={ cam:{target:V(0,0.8,0.2),dist:3.3,h:1.35,ang
   floor(scene); const man=Man(scene); const b=box(0.32,0.07,0.6,MAT.pad); b.position.set(0.1,0.44,0.75); scene.add(b); fixed(scene,0.035,V(0.1,0.4,0.75),V(0.1,0,0.75));
   return { man, pose(t){ const T=tiltVecs(lerp(10,42,t)), pelvis=V(0,0.92,-0.08); const C=pelvis.clone().addScaledVector(T.up,0.5);
     man.set({pelvis, up:T.up, fwd:T.fwd, hand:{L:V(0.02,lerp(0.80,0.66,t),lerp(0.36,0.48,t)),R:V(0.18,lerp(0.80,0.66,t),lerp(0.36,0.48,t))}, foot:{L:V(-0.12,0.07,-0.05),R:V(0.10,0.52,0.72)}, elbowPole:{L:V(-1,-0.5,0),R:V(1,-0.5,0)}, kneePole:{L:V(0,0,1),R:V(0,1,0.2)}, footDir:{L:V(-0.1,0,1),R:V(0,1,0.3)}}); }}; }};
-EX["Pigeon"]={ cam:{target:V(0,0.35,0.1),dist:3.0,h:1.3,ang:40}, build(scene){
+EX["Pigeon"]={ cam:{target:V(0,0.3,0.0),dist:3.2,h:1.35,ang:110}, build(scene){
   floor(scene); const man=Man(scene);
-  return { man, pose(t){ const T=tiltVecs(lerp(5,50,t)), pelvis=V(0.05,lerp(0.30,0.27,t),0.0);
-    man.set({pelvis, up:T.up, fwd:T.fwd, hand:{L:V(-0.28,0.06,lerp(0.25,0.55,t)),R:V(0.30,0.06,lerp(0.25,0.55,t))}, foot:{L:V(-0.16,0.07,-0.82),R:V(-0.18,0.08,0.32)}, elbowPole:{L:V(-1,0,0),R:V(1,0,0)}, kneePole:{L:V(0,-1,0),R:V(1,-0.4,0.5)}, footDir:{L:V(0,-0.2,-1),R:V(-1,0,0.1)}}); }}; }};
+  return { man, pose(t){ const e=ease(t); const T=tiltVecs(lerp(22,62,e)), pelvis=V(0.04,0.24,0.0);
+    const C=pelvis.clone().addScaledVector(T.up,0.5);
+    const hand={L:V(-0.30,0.06,lerp(0.30,0.72,e)),R:V(0.30,0.06,lerp(0.30,0.72,e))};
+    man.set({pelvis, up:T.up, fwd:T.fwd, hand, foot:{L:V(-0.12,0.08,-0.82),R:V(-0.22,0.08,0.32)}, elbowPole:{L:V(-0.6,0,-1),R:V(0.6,0,-1)}, kneePole:{L:V(0,-1,0),R:V(1,-0.3,0.6)}, footDir:{L:V(0,-0.15,-1),R:V(-1,-0.1,0.1)}}); }};
+}};
 EX["Papillon"]={ cam:{target:V(0,0.3,0.1),dist:2.8,h:1.2,ang:25}, build(scene){
   floor(scene); const man=Man(scene);
   return { man, pose(t){ const T=tiltVecs(lerp(8,28,t)), pelvis=V(0,0.16,0.0);
@@ -795,6 +878,11 @@ EX["Genou vers le mur (cheville)"]={ cam:{target:V(0,0.7,0.2),dist:3.2,h:1.25,an
   floor(scene); const man=Man(scene); wall(scene,0,0.78,1.6,'z');
   return { man, pose(t){ const pelvis=V(0,lerp(0.86,0.80,t),lerp(0.12,0.24,t));
     man.set({pelvis, up:V(0,1,0.04), fwd:V(0,0,1), hand:{L:V(-0.25,1.30,0.72),R:V(0.25,1.30,0.72)}, foot:{L:V(0.12,0.07,0.58).setX(-0.12),R:V(0.12,0.07,-0.15)}, elbowPole:{L:V(-1,-1,0),R:V(1,-1,0)}, kneePole:{L:V(0,0,1),R:V(0,0,1)}, footDir:{L:V(0,0,1),R:V(0,-0.3,1)}}); }}; }};
+
+const ease=x=>x<=0?0:x>=1?1:x*x*(3-2*x);
+
+const TW=1;
+// Avant-bras : bras tendu devant, paume vers le haut ; l'autre main tire les doigts vers le bas (poignet en extension)
 
 // ---------------- Contrôle de collisions (outil de vérification) ----------------
 function segDist(p1,q1,p2,q2){ // distance entre segments

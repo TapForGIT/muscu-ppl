@@ -300,7 +300,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.13";
+const APP_VERSION = "1.14";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -1217,7 +1217,7 @@ function start3D(name){
   const st={r,stop:false,raf:0,paused:false,t0:performance.now(),ph:0}; _v3d=st;
   const ang=$("#v3a"); const setC=()=>EXO3D.setCam(cam,def.cam,Number(ang.value)); ang.oninput=()=>{ setC(); if(st.paused){ ex.pose(st.ph); r.render(sc,cam);} }; setC();
   $("#v3p").onclick=()=>{ st.paused=!st.paused; $("#v3p").textContent=st.paused?"▶︎":"⏸"; if(!st.paused) st.t0=performance.now()-st.ph*0; };
-  const loop=ts=>{ if(st.stop) return; if(!st.paused){ st.ph=(1-Math.cos(ts/2800*2*Math.PI))/2; ex.pose(st.ph); r.render(sc,cam); } st.raf=requestAnimationFrame(loop); };
+  const loop=ts=>{ if(st.stop) return; if(!st.paused){ st.ph=def.loop ? (ts/(def.loop*1000))%1 : (1-Math.cos(ts/2800*2*Math.PI))/2; ex.pose(st.ph); r.render(sc,cam); } st.raf=requestAnimationFrame(loop); };
   st.raf=requestAnimationFrame(loop);
 }
 
