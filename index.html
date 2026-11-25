@@ -112,6 +112,8 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:6px}
 .fiche ol,.fiche ul{margin:4px 0 10px;padding-left:20px;line-height:1.5;font-size:14px}
 .fiche h3{margin:14px 0 2px;font-size:15px}
 .mhead{position:sticky;top:-16px;z-index:5;background:var(--card);margin:-16px -16px 10px;padding:14px 12px 10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.mhead.col{display:block;padding-top:8px}
+.grab{width:42px;height:5px;border-radius:3px;background:#ffffff45;margin:0 auto 10px}
 .mhead h2{flex:1;margin:0;font-size:18px;line-height:1.25}
 .mclose{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#ffffff14;color:var(--text);font-size:18px;line-height:1;padding:0}
 .legend{display:flex;gap:12px;font-size:12px;color:var(--muted);margin-top:4px}
@@ -303,7 +305,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.15";
+const APP_VERSION = "1.16";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -858,7 +860,7 @@ function vMuscles(tabs){
 function vProgramme(){
   setHeader("Programme","Touche un élément pour le modifier");
   const t=sub.programme||"seances";
-  const tabs=`<div class="tabs">${[["seances","Séances"],["biblio","Bibliothèque"],["etir","Étirements"]].map(([k,l])=>`<button class="${t===k?"on":""}" onclick="go('programme','${k}')">${l}</button>`).join("")}</div>`;
+  const tabs=`<div class="tabs">${[["seances","Séances"],["etir","Étirements"],["biblio","Bibliothèque"]].map(([k,l])=>`<button class="${t===k?"on":""}" onclick="go('programme','${k}')">${l}</button>`).join("")}</div>`;
   if(t==="biblio") return vBiblio(tabs);
   if(t==="etir") return vStretchProg(tabs);
   const cur = sub.prog && S.program[sub.prog] ? sub.prog : S.rotation[0];
@@ -1104,6 +1106,19 @@ function vAide(tabs){
    13. FENÊTRE MODALE + DÉMARRAGE
    ===================================================================== */
 function modal(html,locked){ closeModal(); const bg=document.createElement("div"); bg.className="modal-bg"; bg.id="modal"; bg.innerHTML=`<div class="modal">${html}</div>`; if(!locked) bg.addEventListener("click",e=>{ if(e.target===bg) closeModal(); }); document.body.appendChild(bg); }
+// Fermer une fenêtre (fiche ⓘ) en la glissant vers le bas : depuis la poignée/le titre, ou depuis le contenu quand il est tout en haut
+function swipeClose(bg,onClose){ const sh=bg.querySelector(".modal"); if(!sh) return; sh.classList.add("swipe");
+  let y0=0,x0=0,dy=0,t0=0,drag=false,ok=false;
+  sh.addEventListener("touchstart",e=>{ if(e.touches.length!==1||e.target.closest("input,select,textarea")){ ok=false; return; }
+    ok = sh.scrollTop<=0 || !!e.target.closest(".mhead,.grab"); y0=e.touches[0].clientY; x0=e.touches[0].clientX; dy=0; drag=false; t0=Date.now(); },{passive:true});
+  sh.addEventListener("touchmove",e=>{ if(!ok) return; const d=e.touches[0].clientY-y0, dx=e.touches[0].clientX-x0;
+    if(!drag){ if(d>8 && d>Math.abs(dx) && (sh.scrollTop<=0 || e.target.closest(".mhead,.grab"))){ drag=true; sh.style.transition="none"; } else if(Math.abs(dx)>8||d<-8){ ok=false; return; } else return; }
+    e.preventDefault(); dy=Math.max(0,d-8); sh.style.transform=`translateY(${dy}px)`; bg.style.background=`rgba(0,0,0,${0.67*Math.max(0,1-dy/500)})`; },{passive:false});
+  const end=()=>{ if(!drag){ ok=false; return; } drag=false; ok=false; const v=dy/Math.max(1,Date.now()-t0);
+    sh.style.transition="transform .22s ease"; bg.style.transition="background .22s";
+    if(dy>110 || (dy>60 && v>0.5)){ sh.style.transform="translateY(110%)"; bg.style.background="rgba(0,0,0,0)"; setTimeout(onClose,200); }
+    else { sh.style.transform=""; bg.style.background=""; } };
+  sh.addEventListener("touchend",end); sh.addEventListener("touchcancel",end); }
 function closeModal(){ stop3D(); stopStretchTimer(); const m=$("#modal"); if(m) m.remove(); }
 
 /* =====================================================================
@@ -1116,7 +1131,7 @@ function startStretch(r){
   const list=S.stretch.routines[r]||[]; if(!list.length){ toast("Routine vide : ajoute des étirements dans Programme › Étirements"); return; }
   Timer.unlock(); const steps=[]; list.forEach(x=>{ (x.sides?["Côté droit","Côté gauche"]:[""]).forEach(side=>steps.push({...x,side})); });
   ST={r,steps,i:-1,left:0,paused:false,iv:null,t0:Date.now()};
-  modal(`<div class="fiche"><div class="mhead"><h2 id="stName"></h2><span class="chip" id="stStep"></span><button class="mclose" aria-label="Arrêter" onclick="finishStretch(false)">✕</button></div>
+  modal(`<div class="fiche"><div class="mhead"><h2 id="stName"></h2><span class="chip" id="stStep"></span></div>
     <div class="small" id="stSide" style="color:var(--warn);margin:4px 0 8px;min-height:18px"></div>
     <div class="v3d" id="v3d"><div class="ph">Chargement…</div></div>
     <div id="stTime" style="text-align:center;font-size:56px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;margin:6px 0"></div>
@@ -1157,8 +1172,8 @@ function finishStretch(done){
 function showFicheStretch(name){
   // consignes par-dessus la routine, sans l'arrêter
   const f=(window.FICHES||{})[name]; if(!f) return; const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
-  const d=document.createElement("div"); d.className="modal-bg"; d.style.zIndex=70; d.innerHTML=`<div class="modal fiche"><div class="mhead"><h2>${esc(name)}</h2><button class="mclose" aria-label="Fermer">✕</button></div><h3>Exécution</h3><ol>${li(f.exec)}</ol><h3>Points clés</h3><ul>${li(f.cles)}</ul><h3>À éviter</h3><ul>${li(f.err)}</ul><button class="btn block" style="margin-top:12px">Fermer</button></div>`;
-  d.querySelectorAll("button").forEach(b=>b.onclick=()=>d.remove()); d.addEventListener("click",e=>{ if(e.target===d) d.remove(); }); document.body.appendChild(d);
+  const d=document.createElement("div"); d.className="modal-bg"; d.style.zIndex=70; d.innerHTML=`<div class="modal fiche"><div class="mhead col"><div class="grab"></div><h2>${esc(name)}</h2></div><h3>Exécution</h3><ol>${li(f.exec)}</ol><h3>Points clés</h3><ul>${li(f.cles)}</ul><h3>À éviter</h3><ul>${li(f.err)}</ul></div>`;
+  d.addEventListener("click",e=>{ if(e.target===d) d.remove(); }); document.body.appendChild(d); swipeClose(d,()=>d.remove());
 }
 function vStretchProg(tabs){
   const R=S.stretch.routines;
@@ -1201,12 +1216,12 @@ function stop3D(){ if(!_v3d) return; _v3d.stop=true; cancelAnimationFrame(_v3d.r
 function showFiche(name){
   const f=(window.FICHES||{})[name], st=STRETCHES.find(a=>a[0]===name), inf=st?{muscle:st[1],muscle2:"",portion:"Étirement / mobilité"}:exInfo(name);
   const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
-  modal(`<div class="fiche"><div class="mhead"><h2>${esc(name)}</h2><button class="mclose" aria-label="Fermer" onclick="closeModal()">✕</button></div>
+  modal(`<div class="fiche"><div class="mhead col"><div class="grab"></div><h2>${esc(name)}</h2></div>
     <div class="row wrap" style="margin-bottom:10px">${inf.muscle?`<span class="chip good">${esc(inf.muscle)}</span>`:""}${inf.muscle2?`<span class="chip">+ ${esc(inf.muscle2)}</span>`:""}${inf.portion?`<span class="chip">${esc(inf.portion)}</span>`:""}</div>
     <div class="v3d" id="v3d"><div class="ph">Chargement du visuel…</div></div>
     ${f?`<h3>Exécution</h3><ol>${li(f.exec)}</ol><h3>Points clés</h3><ul>${li(f.cles)}</ul><h3>Erreurs fréquentes</h3><ul>${li(f.err)}</ul>${f.src?`<div class="tiny muted">Source des consignes : ${esc(f.src)}</div>`:""}`
-       :`<div class="small muted" style="margin-top:12px">Fiche détaillée à venir pour cet exercice.</div>`}
-    <button class="btn block" style="margin-top:14px" onclick="closeModal()">Fermer</button></div>`);
+       :`<div class="small muted" style="margin-top:12px">Fiche détaillée à venir pour cet exercice.</div>`}</div>`);
+  swipeClose($("#modal"),closeModal);
   load3D().then(()=>start3D(name)).catch(()=>{ const v=$("#v3d"); if(v) v.innerHTML='<div class="ph">Visuel indisponible hors ligne pour l\'instant (ouvre la fiche une fois avec du réseau).</div>'; });
 }
 function start3D(name){
