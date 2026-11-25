@@ -256,6 +256,34 @@ const DEFAULT_SETTINGS = {
   wake:true       // garder l'écran allumé pendant la séance
 };
 
+// [nom, zone, durée (s) ou null, répétitions ou null, des deux côtés]
+const STRETCHES = [
+ ["Étirement pectoral à la porte","Pecs, avant d'épaule",30,null,true],
+ ["Étirement épaule bras croisé","Arrière d'épaule",30,null,true],
+ ["Étirement triceps au-dessus de la tête","Triceps",30,null,true],
+ ["Livre ouvert (rotation thoracique)","Haut du dos (mobilité)",null,8,true],
+ ["Suspension passive","Dos, épaules",30,null,false],
+ ["Posture de l'enfant latérale","Grand dorsal, flancs",30,null,true],
+ ["Étirement biceps au mur","Biceps",30,null,true],
+ ["Étirement avant-bras","Avant-bras",30,null,true],
+ ["Chat-vache","Colonne (mobilité)",null,10,false],
+ ["Fente basse (fléchisseurs de hanche)","Hanches",40,null,true],
+ ["Étirement quadriceps debout","Quadriceps",30,null,true],
+ ["Étirement ischios sur banc","Ischios",40,null,true],
+ ["Pigeon","Fessiers",40,null,true],
+ ["Papillon","Adducteurs",40,null,false],
+ ["Genou vers le mur (cheville)","Chevilles (mobilité)",null,10,true],
+];
+const DEFAULT_STRETCH_ROUTINES = {
+ "Après Push":["Étirement pectoral à la porte","Étirement épaule bras croisé","Étirement triceps au-dessus de la tête","Livre ouvert (rotation thoracique)"],
+ "Après Pull":["Suspension passive","Posture de l'enfant latérale","Étirement biceps au mur","Étirement avant-bras","Chat-vache"],
+ "Après Legs":["Fente basse (fléchisseurs de hanche)","Étirement quadriceps debout","Étirement ischios sur banc","Pigeon","Papillon","Genou vers le mur (cheville)"]
+};
+const stretchInfo = n => { const x=STRETCHES.find(a=>a[0]===n); return x?{name:x[0],zone:x[1],dur:x[2],reps:x[3],sides:x[4]}:{name:n,zone:"",dur:30,reps:null,sides:false}; };
+function defaultStretch(){
+  const routines={}; for(const [r,list] of Object.entries(DEFAULT_STRETCH_ROUTINES)) routines[r]=list.map(n=>{ const i=stretchInfo(n); return {name:n,dur:i.dur,reps:i.reps,sides:i.sides}; });
+  return {routines, link:{"Push A":"Après Push","Push B":"Après Push","Pull A":"Après Pull","Pull B":"Après Pull","Legs A":"Après Legs","Legs B":"Après Legs"}, log:[]};
+}
 function defaultState(){
   return {
     version:1,
@@ -274,7 +302,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.11";
+const APP_VERSION = "1.12";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -282,6 +310,7 @@ function load(){
   if(!S || !S.program){ S = defaultState(); save(); }
   S.settings = {...DEFAULT_SETTINGS, ...(S.settings||{})};
   S.body = S.body||[]; S.log = S.log||[]; S.muscles = S.muscles||[...MUSCLES];
+  if(!S.stretch){ S.stretch=defaultStretch(); save(); } // v1.12 : étirements (séparés de la muscu)
   // v1.8 : nouveaux temps de repos (3 min gros exercices, 2 min isolation), appliqués une seule fois
   if(!S.restV18){
     for(const [sess,list] of Object.entries(DEFAULT_PROGRAM)){
@@ -581,7 +610,7 @@ function vSeance(){
       <div class="card"><h3>Faire une autre séance</h3><div class="row wrap">
         ${S.rotation.filter(s=>s!==nx).map(s=>`<button class="btn sm" onclick="startSession(this.dataset.s)" data-s="${esc(s)}">${esc(s)}</button>`).join("")}
         <button class="btn sm ghost" onclick="startSession('Libre')">+ Séance libre</button></div></div>
-      ${weekCard()}`;
+      ${weekCard()}${stretchCard()}`;
     return;
   }
   setHeader(d.session + (d.id?" (modification)":""), `${DAYS[toDate(d.date).getDay()]} ${fdate(d.date,true)}`);
@@ -688,7 +717,8 @@ function finishSession(){
   modal(`<h2>Séance enregistrée 💪</h2>
     <div class="kpis"><div class="kpi"><div class="v">${nsets}</div><div class="l">séries</div></div><div class="kpi"><div class="v">${fmt(vol,0)}</div><div class="l">kg soulevés</div></div></div>
     ${prs.length?`<div class="card"><h3>💪 ${prs.length} progrès aujourd'hui !</h3>${prs.map(e=>`<div class="small" style="margin:4px 0"><span class="chip gold">${REC_LABEL[recOf(e)]}</span> ${esc(e.ex)} : ${esc(summary(e.sets))}</div>`).join("")}</div>`:`<div class="muted small">Pas de progrès mesuré aujourd'hui, la régularité paie 😉</div>`}
-    <button class="btn primary block" style="margin-top:14px" onclick="closeModal();go('progres')">Voir mes progrès</button>
+    ${S.stretch.link[rec.session]&&S.stretch.routines[S.stretch.link[rec.session]]?`<button class="btn primary block" style="margin-top:14px" data-r="${esc(S.stretch.link[rec.session])}" onclick="startStretch(this.dataset.r)">🧘 Étirements ${esc(S.stretch.link[rec.session])} · ${Math.round(stretchSecs(S.stretch.link[rec.session])/60)} min</button>`:""}
+    <button class="btn block" style="margin-top:8px" onclick="closeModal();go('progres')">Voir mes progrès</button>
     <button class="btn block ghost" style="margin-top:8px" onclick="closeModal();render()">Fermer</button>`);
   render();
 }
@@ -696,6 +726,13 @@ function cancelSession(force){
   if(force || confirm(S.draft.id?"Annuler les modifications ?":"Abandonner la séance en cours ? Les séries saisies seront perdues.")){
     S.draft=null; save(); Timer.stop(); keepAwake(false); render();
   }
+}
+function stretchSecs(r){ return (S.stretch.routines[r]||[]).reduce((a,x)=>a+((x.reps?x.reps*4:(x.dur||30))+5)*(x.sides?2:1),0); }
+function stretchCard(){
+  const ws=weekStart(todayStr()), n=S.stretch.log.filter(x=>x.date>=ws).length;
+  return `<div class="card"><div class="row between"><h3 style="margin:0">🧘 Étirements et mobilité</h3><span class="chip">${n} cette semaine</span></div>
+    <div class="small muted" style="margin:4px 0 10px">À part de la muscu : ne compte ni dans tes séances ni dans tes stats.</div>
+    <div class="row wrap">${Object.keys(S.stretch.routines).map(r=>`<button class="btn sm" data-r="${esc(r)}" onclick="startStretch(this.dataset.r)">▶︎ ${esc(r)} · ${Math.round(stretchSecs(r)/60)} min</button>`).join("")}</div></div>`;
 }
 function weekCard(){
   const ws=weekStart(todayStr()), n=new Set(S.log.filter(s=>s.date>=ws).map(s=>s.date)).size;
@@ -768,6 +805,7 @@ function vBilan(tabs){
       <div class="kpi"><div class="v" style="color:var(--gold)">💪 ${progM}</div><div class="l">progrès ce mois (dont ★ ${prM} records)</div></div>
       <div class="kpi"><div class="v" style="color:${stag.length?"var(--bad)":"var(--accent)"}">${stag.length}</div><div class="l">exercices en stagnation</div></div>
     </div>
+    <div class="card"><div class="row between"><h3 style="margin:0">🧘 Étirements cette semaine</h3><b>${S.stretch.log.filter(x=>x.date>=ws).length}</b></div><div class="tiny muted" style="margin-top:4px">Suivi à part : ne compte pas dans les séances ci-dessus.</div></div>
     <div class="card"><h3>Tonnage par semaine (kg)</h3><canvas id="cTon"></canvas></div>
     <div class="card"><h3>Séances par semaine</h3><canvas id="cSes"></canvas></div>
     <div class="card"><h3>🔴 À surveiller</h3>${stag.length?stag.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}"><div class="grow"><b>${esc(x.ex)}</b><div class="small muted">${x.st.since} séances sans progrès · dernière perf ${fmt(x.st.last.perf)} / record ${fmt(x.st.best)}</div></div><canvas data-spark="${esc(x.ex)}" style="width:70px"></canvas></div>`).join("")
@@ -819,8 +857,9 @@ function vMuscles(tabs){
 function vProgramme(){
   setHeader("Programme","Touche un élément pour le modifier");
   const t=sub.programme||"seances";
-  const tabs=`<div class="tabs">${[["seances","Séances"],["biblio","Bibliothèque"]].map(([k,l])=>`<button class="${t===k?"on":""}" onclick="go('programme','${k}')">${l}</button>`).join("")}</div>`;
+  const tabs=`<div class="tabs">${[["seances","Séances"],["biblio","Bibliothèque"],["etir","Étirements"]].map(([k,l])=>`<button class="${t===k?"on":""}" onclick="go('programme','${k}')">${l}</button>`).join("")}</div>`;
   if(t==="biblio") return vBiblio(tabs);
+  if(t==="etir") return vStretchProg(tabs);
   const cur = sub.prog && S.program[sub.prog] ? sub.prog : S.rotation[0];
   $("#view").innerHTML = tabs+`
     <div class="card"><div class="row between"><h3 style="margin:0">Rotation des séances</h3><button class="btn sm" onclick="addSessionType()">+ Séance</button></div>
@@ -1051,6 +1090,8 @@ function vAide(tabs){
     <p><b>Perf</b> = 1RM estimé de ta meilleure série : charge × (1 + reps/30).</p>
     <p>Une séance compte comme un <b>progrès</b> si : <b>★ record</b> (meilleure perf jamais faite), <b>↑ charge</b> (charge jamais utilisée sur cet exercice, même avec moins de reps), ou <b>↑ reps</b> (plus de reps en moyenne sur tes séries à la charge de travail que toutes les fois où tu as utilisé cette charge ou plus lourd). Ex. : 90 kg × 8/6/5 puis 90 kg × 8/8/8 = ↑ reps.</p>
     <p>🟢 progrès récent · 🟡 pas de progrès depuis ${S.settings.stable} séances · 🔴 pas de progrès depuis ${S.settings.stag} séances.</p>
+    <h3>Étirements</h3>
+    <p>À la fin d'une séance, l'appli te propose la routine liée (Après Push, Pull ou Legs). Elle est guidée : minuteur, côté droit puis gauche, bip à la fin de chaque étirement. C'est <b>à part</b> de la muscu : ça ne compte ni dans tes séances ni dans tes stats. Tout se modifie dans <b>Programme › Étirements</b>.</p>
     <h3>Modifier</h3>
     <p>Onglet <b>Programme</b> : séances, ordre, exercices, séries, reps, repos, réglages machine, alternatives. <b>Bibliothèque</b> : ajouter ou renommer un exercice (le renommage est appliqué partout, historique compris). <b>Plus › Réglages</b> : seuils, objectifs, minuteur.</p>
     <h3>Tes données</h3>
@@ -1061,8 +1102,93 @@ function vAide(tabs){
 /* =====================================================================
    13. FENÊTRE MODALE + DÉMARRAGE
    ===================================================================== */
-function modal(html){ closeModal(); const bg=document.createElement("div"); bg.className="modal-bg"; bg.id="modal"; bg.innerHTML=`<div class="modal">${html}</div>`; bg.addEventListener("click",e=>{ if(e.target===bg) closeModal(); }); document.body.appendChild(bg); }
-function closeModal(){ stop3D(); const m=$("#modal"); if(m) m.remove(); }
+function modal(html,locked){ closeModal(); const bg=document.createElement("div"); bg.className="modal-bg"; bg.id="modal"; bg.innerHTML=`<div class="modal">${html}</div>`; if(!locked) bg.addEventListener("click",e=>{ if(e.target===bg) closeModal(); }); document.body.appendChild(bg); }
+function closeModal(){ stop3D(); stopStretchTimer(); const m=$("#modal"); if(m) m.remove(); }
+
+/* =====================================================================
+   15. ÉTIREMENTS : routine guidée (séparée de la muscu) + réglages
+   ===================================================================== */
+let ST=null;
+function stopStretchTimer(){ if(ST){ clearInterval(ST.iv); ST.iv=null; } }
+function itemLabel(x){ return (x.reps?`${x.reps} répétitions`:`${x.dur} s`)+(x.sides?" × 2 côtés":""); }
+function startStretch(r){
+  const list=S.stretch.routines[r]||[]; if(!list.length){ toast("Routine vide : ajoute des étirements dans Programme › Étirements"); return; }
+  Timer.unlock(); const steps=[]; list.forEach(x=>{ (x.sides?["Côté droit","Côté gauche"]:[""]).forEach(side=>steps.push({...x,side})); });
+  ST={r,steps,i:-1,left:0,paused:false,iv:null,t0:Date.now()};
+  modal(`<div class="fiche"><div class="row between"><h2 id="stName" style="margin:0"></h2><span class="chip" id="stStep"></span></div>
+    <div class="small" id="stSide" style="color:var(--warn);margin:4px 0 8px;min-height:18px"></div>
+    <div class="v3d" id="v3d"><div class="ph">Chargement…</div></div>
+    <div id="stTime" style="text-align:center;font-size:56px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;margin:6px 0"></div>
+    <button class="btn primary block" id="stDone" style="display:none;padding:14px;font-size:17px" onclick="stretchNext()">✓ Fait</button>
+    <div class="row" style="margin-top:8px"><button class="btn grow" onclick="stretchPrev()">⏮</button><button class="btn grow" id="stPause" onclick="stretchPause()">⏸</button><button class="btn grow" onclick="stretchNext()">⏭</button></div>
+    <div class="small muted" id="stNext" style="margin-top:10px"></div>
+    <div class="row" style="margin-top:12px"><button class="btn sm ghost" id="stInfo">ⓘ Consignes</button><span class="grow"></span><button class="btn sm danger" onclick="finishStretch(false)">Arrêter</button></div></div>`, true);
+  keepAwake(true); stretchGo(0);
+  ST.iv=setInterval(stretchTick,250);
+}
+function stretchGo(i){
+  if(!ST) return; if(i>=ST.steps.length){ finishStretch(true); return; } i=Math.max(0,i);
+  const prev=ST.steps[ST.i]; ST.i=i; const x=ST.steps[i];
+  ST.left=x.reps?0:x.dur; ST.paused=false; ST.end=Date.now()+ST.left*1000;
+  $("#stName").textContent=x.name; $("#stStep").textContent=`${i+1} / ${ST.steps.length}`; $("#stSide").textContent=x.side||"";
+  $("#stDone").style.display=x.reps?"block":"none"; $("#stPause").textContent="⏸";
+  $("#stTime").textContent=x.reps?`${x.reps} rép.`:mmss(x.dur);
+  const nx=ST.steps[i+1]; $("#stNext").textContent=nx?`Ensuite : ${nx.name}${nx.side?" ("+nx.side.toLowerCase()+")":""}`:"Dernier étirement 💪";
+  $("#stInfo").onclick=()=>{ const w=ST; showFicheStretch(x.name); };
+  if(!prev||prev.name!==x.name) load3D().then(()=>{ if(ST&&ST.steps[ST.i].name===x.name) start3D(x.name); }).catch(()=>{});
+}
+function stretchTick(){
+  if(!ST||ST.paused) return; const x=ST.steps[ST.i]; if(!x||x.reps) return;
+  const left=(ST.end-Date.now())/1000; $("#stTime").textContent=mmss(Math.max(0,Math.ceil(left)));
+  if(left<=0){ Timer.beep(); stretchGo(ST.i+1); }
+}
+function stretchPause(){ if(!ST) return; const x=ST.steps[ST.i]; if(x.reps) return;
+  if(!ST.paused){ ST.paused=true; ST.left=Math.max(0,(ST.end-Date.now())/1000); $("#stPause").textContent="▶︎"; } else { ST.paused=false; ST.end=Date.now()+ST.left*1000; $("#stPause").textContent="⏸"; } }
+function stretchNext(){ if(ST) stretchGo(ST.i+1); }
+function stretchPrev(){ if(ST) stretchGo(ST.i-1); }
+function finishStretch(done){
+  if(!ST) return; const secs=Math.round((Date.now()-ST.t0)/1000), r=ST.r, n=ST.i+(done?1:0), total=ST.steps.length;
+  stopStretchTimer(); ST=null; keepAwake(false);
+  if(n>0){ S.stretch.log.push({id:uid(),date:todayStr(),routine:r,secs,steps:n,total}); save(); }
+  modal(`<h2>${done?"Étirements terminés 🧘":"Étirements arrêtés"}</h2><div class="kpis"><div class="kpi"><div class="v">${mmss(secs)}</div><div class="l">durée</div></div><div class="kpi"><div class="v">${n} / ${total}</div><div class="l">étapes</div></div></div>
+    <div class="small muted">${n>0?"Enregistré dans ton suivi d'étirements (à part de la muscu).":"Rien n'a été enregistré."}</div><button class="btn block" style="margin-top:14px" onclick="closeModal();render()">Fermer</button>`);
+}
+function showFicheStretch(name){
+  // consignes par-dessus la routine, sans l'arrêter
+  const f=(window.FICHES||{})[name]; if(!f) return; const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  const d=document.createElement("div"); d.className="modal-bg"; d.style.zIndex=70; d.innerHTML=`<div class="modal fiche"><h2>${esc(name)}</h2><h3>Exécution</h3><ol>${li(f.exec)}</ol><h3>Points clés</h3><ul>${li(f.cles)}</ul><h3>À éviter</h3><ul>${li(f.err)}</ul><button class="btn block" style="margin-top:12px">Fermer</button></div>`;
+  d.querySelector("button").onclick=()=>d.remove(); d.addEventListener("click",e=>{ if(e.target===d) d.remove(); }); document.body.appendChild(d);
+}
+function vStretchProg(tabs){
+  const R=S.stretch.routines;
+  $("#view").innerHTML=tabs+`<div class="small muted" style="margin:0 4px 10px">Les étirements sont à part : ils ne comptent ni dans tes séances, ni dans tes stats de muscu.</div>`+
+  Object.keys(R).map(r=>`<div class="card"><div class="row between"><h3 style="margin:0">${esc(r)} <span class="tiny muted">· ${Math.round(stretchSecs(r)/60)} min</span></h3><button class="btn sm ghost" data-r="${esc(r)}" onclick="editRoutine(this.dataset.r)">✏️</button></div>
+    ${R[r].map((x,i)=>`<div class="list-item"><div class="grow" data-r="${esc(r)}" onclick="editStretch(this.dataset.r,${i})"><b>${esc(x.name)}</b><div class="small muted">${esc(itemLabel(x))}</div></div>
+      <button class="btn sm ghost" data-r="${esc(r)}" onclick="moveStretch(this.dataset.r,${i},-1)">↑</button><button class="btn sm ghost" data-r="${esc(r)}" onclick="moveStretch(this.dataset.r,${i},1)">↓</button>${INFO}${esc(x.name)}">i</button></div>`).join("")||`<div class="small muted">Aucun étirement.</div>`}
+    <div class="row wrap" style="margin-top:8px"><button class="btn sm" data-r="${esc(r)}" onclick="editStretch(this.dataset.r,-1)">+ Ajouter</button><button class="btn sm primary" data-r="${esc(r)}" onclick="startStretch(this.dataset.r)">▶︎ Lancer</button></div></div>`).join("")+
+  `<button class="btn block" style="margin-bottom:12px" onclick="addRoutine()">+ Nouvelle routine</button>
+   <div class="card"><h3>Routine proposée après chaque séance</h3>${S.rotation.map(s=>`<div class="row" style="margin:6px 0"><span class="grow">${esc(s)}</span><select style="width:55%" data-s="${esc(s)}" onchange="S.stretch.link[this.dataset.s]=this.value;save()"><option value="">— aucune —</option>${Object.keys(R).map(r=>`<option ${S.stretch.link[s]===r?"selected":""}>${esc(r)}</option>`).join("")}</select></div>`).join("")}</div>`;
+}
+function moveStretch(r,i,d){ const a=S.stretch.routines[r], j=i+d; if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; save(); render(); }
+function editStretch(r,i){
+  const x=i>=0?S.stretch.routines[r][i]:{...stretchInfo(STRETCHES[0][0]),name:STRETCHES[0][0]};
+  modal(`<h2>${i>=0?"Modifier":"Ajouter"} · ${esc(r)}</h2>
+    <label>Étirement</label><select id="sName" onchange="const d=stretchInfo(this.value);$('#sDur').value=d.dur||'';$('#sReps').value=d.reps||'';$('#sSides').checked=d.sides">${STRETCHES.map(a=>`<option ${a[0]===x.name?"selected":""}>${esc(a[0])}</option>`).join("")}</select>
+    <div class="grid2"><div><label>Durée (secondes)</label><input id="sDur" inputmode="numeric" value="${x.dur??""}" placeholder="vide si répétitions"></div><div><label>Ou répétitions</label><input id="sReps" inputmode="numeric" value="${x.reps??""}"></div></div>
+    <label class="row" style="color:var(--text);font-size:15px;margin:12px 0"><input type="checkbox" id="sSides" style="width:22px;height:22px" ${x.sides?"checked":""}> Des deux côtés</label>
+    <div class="row" style="margin-top:12px">${i>=0?`<button class="btn danger" data-r="${esc(r)}" onclick="S.stretch.routines[this.dataset.r].splice(${i},1);save();closeModal();render()">Retirer</button>`:""}<button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn primary grow" data-r="${esc(r)}" onclick="saveStretch(this.dataset.r,${i})">Enregistrer</button></div>`);
+}
+function saveStretch(r,i){ const reps=num($("#sReps").value), dur=num($("#sDur").value);
+  const x={name:$("#sName").value, reps:reps||null, dur:reps?null:(dur||30), sides:$("#sSides").checked};
+  if(i>=0) S.stretch.routines[r][i]=x; else S.stretch.routines[r].push(x); save(); closeModal(); render(); }
+function addRoutine(){ const n=(prompt("Nom de la routine (ex : Après Full body, Matin…)")||"").trim(); if(!n) return; if(S.stretch.routines[n]){ toast("Ce nom existe déjà"); return; } S.stretch.routines[n]=[]; save(); render(); }
+function editRoutine(r){
+  modal(`<h2>Routine « ${esc(r)} »</h2><label>Nom</label><input id="rName" value="${esc(r)}">
+    <div class="row" style="margin-top:14px"><button class="btn danger" data-r="${esc(r)}" onclick="if(confirm('Supprimer cette routine ?')){delete S.stretch.routines[this.dataset.r];for(const k in S.stretch.link) if(S.stretch.link[k]===this.dataset.r) S.stretch.link[k]='';save();closeModal();render();}">Supprimer</button><button class="btn grow" onclick="closeModal()">Annuler</button>
+    <button class="btn primary grow" data-r="${esc(r)}" onclick="renameRoutine(this.dataset.r)">Enregistrer</button></div>`);
+}
+function renameRoutine(r){ const n=$("#rName").value.trim(); if(!n||n===r){ closeModal(); return; } if(S.stretch.routines[n]){ toast("Ce nom existe déjà"); return; }
+  const o={}; for(const k of Object.keys(S.stretch.routines)) o[k===r?n:k]=S.stretch.routines[k]; S.stretch.routines=o; for(const k in S.stretch.link) if(S.stretch.link[k]===r) S.stretch.link[k]=n; save(); closeModal(); render(); }
 
 /* =====================================================================
    14. FICHES EXERCICES + VISUELS 3D (chargés seulement à l'ouverture d'une fiche)
@@ -1072,7 +1198,7 @@ function loadScript(src){ return new Promise((res,rej)=>{ const s=document.creat
 function load3D(){ if(!_load3d) _load3d=(window.THREE?Promise.resolve():loadScript("three.min.js")).then(()=>window.EXO3D?null:loadScript("exo3d.js")); return _load3d; }
 function stop3D(){ if(!_v3d) return; _v3d.stop=true; cancelAnimationFrame(_v3d.raf); try{ _v3d.r.dispose(); _v3d.r.forceContextLoss(); }catch(e){} _v3d=null; }
 function showFiche(name){
-  const f=(window.FICHES||{})[name], inf=exInfo(name);
+  const f=(window.FICHES||{})[name], st=STRETCHES.find(a=>a[0]===name), inf=st?{muscle:st[1],muscle2:"",portion:"Étirement / mobilité"}:exInfo(name);
   const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
   modal(`<div class="fiche"><h2>${esc(name)}</h2>
     <div class="row wrap" style="margin-bottom:10px">${inf.muscle?`<span class="chip good">${esc(inf.muscle)}</span>`:""}${inf.muscle2?`<span class="chip">+ ${esc(inf.muscle2)}</span>`:""}${inf.portion?`<span class="chip">${esc(inf.portion)}</span>`:""}</div>
@@ -1097,7 +1223,11 @@ function start3D(name){
   st.raf=requestAnimationFrame(loop);
 }
 
-load(); render();
+// La hauteur de l'appli suit la hauteur réelle de l'écran (corrige la barre d'onglets mal placée sur certains iPhone)
+function fitApp(){ const a=document.activeElement; if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; document.body.style.bottom="auto"; document.body.style.height=window.innerHeight+"px"; }
+window.addEventListener("resize",fitApp); window.addEventListener("orientationchange",()=>setTimeout(fitApp,350)); window.addEventListener("pageshow",fitApp);
+document.addEventListener("focusout",()=>setTimeout(fitApp,120));
+load(); render(); fitApp();
 document.addEventListener("focusout",()=>{ setTimeout(()=>{ if(!document.activeElement||document.activeElement.tagName!=="INPUT") window.scrollTo(0,0); },60); });
 if(S.draft) toast("Séance en cours reprise");
 let _lastW = window.innerWidth;
