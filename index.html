@@ -105,6 +105,14 @@ table.hist th{color:var(--muted);font-weight:500}
 .exname{font-weight:700;font-size:16px}
 .collapsed .body{display:none}
 details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:6px}
+.info{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--card2);color:var(--accent);font-weight:800;font-size:15px;font-family:Georgia,serif;font-style:italic;padding:0;margin-left:6px}
+.v3d{background:#e9e8e3;border-radius:12px;overflow:hidden;position:relative}
+.v3d canvas{width:100%;height:260px;display:block}
+.v3d .ctl{display:flex;gap:8px;align-items:center;padding:6px 10px;background:#dcdbd5}
+.v3d .ctl input{padding:0;accent-color:#2e6b4f}
+.v3d .ph{height:180px;display:flex;align-items:center;justify-content:center;color:#666;font-size:14px;text-align:center;padding:0 20px}
+.fiche ol,.fiche ul{margin:4px 0 10px;padding-left:20px;line-height:1.5;font-size:14px}
+.fiche h3{margin:14px 0 2px;font-size:15px}
 .legend{display:flex;gap:12px;font-size:12px;color:var(--muted);margin-top:4px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 </style>
@@ -116,6 +124,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:6px}
   <button class="btn sm" onclick="Timer.add(-15)">−15</button><button class="btn sm" onclick="Timer.add(15)">+15</button><button class="btn sm" onclick="Timer.stop()">✕</button></div>
 <nav id="nav"></nav>
 
+<script src="fiches.js"></script>
 <script>
 "use strict";
 /* =====================================================================
@@ -265,7 +274,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.11";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -328,6 +337,7 @@ function filterSelect(q, id){
   s.innerHTML=keep.map(o=>`<option value="${esc(o.v)}">${esc(o.t)}</option>`).join("");
   if(keep.some(o=>o.v===cur)) s.value=cur; else { const f=keep.find(o=>o.v); if(f) s.value=f.v; }
 }
+const INFO='<button class="info" aria-label="Fiche" onclick="event.stopPropagation();showFiche(this.dataset.n)" data-n="';
 const searchBox = (ph, on) => `<div class="search"><input type="search" placeholder="${ph}" oninput="${on}" autocomplete="off"></div>`;
 const DAYS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
 
@@ -593,7 +603,7 @@ function entryCard(e,i){
   const allDone = e.sets.length && e.sets.every(s=>s.done);
   return `<div class="card ${collapsed}" id="ex${i}">
     <div class="exhead" onclick="toggleEx(${i})"><div>
-      <div class="exname">${allDone?"✅ ":""}${esc(e.ex)}</div>
+      <div class="exname">${allDone?"✅ ":""}${esc(e.ex)} ${INFO}${esc(e.ex)}">i</button></div>
       <div class="small muted">${l.sets} × ${l.rmin}-${l.rmax} · repos ${mmss(l.rest||S.settings.rest)}${l.reglages?` · réglages : <b style="color:var(--text)">${esc(l.reglages)}</b>`:""}</div>
       ${inf.portion?`<div class="tiny muted">${esc(inf.portion)}</div>`:""}
     </div><div style="text-align:right">${st.code?statusChip(st):""}<div class="tiny muted" style="margin-top:4px">${e.collapsed?"▼":"▲"}</div></div></div>
@@ -771,7 +781,7 @@ function vExos(tabs){
   const rows=exList.map(ex=>({ex,st:statusOf(ex)})).sort((a,b)=>b.st.code-a.st.code || a.ex.localeCompare(b.ex));
   $("#view").innerHTML = tabs+searchBox("Rechercher un exercice","filterList(this.value,'#exos')")+`<div class="card" id="exos">${rows.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}" data-search="${esc(x.ex+" "+(exInfo(x.ex).muscle||""))}">
       <div class="grow"><div><b>${esc(x.ex)}</b></div><div class="small muted">${x.st.h.length} séance${x.st.h.length>1?"s":""}${x.st.code?` · record ${fmt(x.st.best)}${x.st.since?` · ${x.st.since} sans progrès`:""}`:""}</div><div style="margin-top:4px">${statusChip(x.st)} ${lastProgChip(x.ex)}</div></div>
-      <canvas data-spark="${esc(x.ex)}" style="width:80px"></canvas></div>`).join("")}</div>
+      <canvas data-spark="${esc(x.ex)}" style="width:80px"></canvas>${INFO}${esc(x.ex)}">i</button></div>`).join("")}</div>
     <div class="small muted" style="padding:0 4px">Un <b>progrès</b> = ★ record de perf (1RM estimé de ta meilleure série), ou ↑ charge (charge jamais utilisée), ou ↑ reps (plus de reps en moyenne sur tes séries, à charge égale ou plus lourde). 🟢 progrès récent · 🟡 ${S.settings.stable}+ séances sans progrès · 🔴 ${S.settings.stag}+ séances sans progrès.</div>`;
 }
 function showEx(ex){
@@ -820,7 +830,7 @@ function vProgramme(){
     </div>
     <div class="card"><div class="row between"><h2 style="margin:0">${esc(cur)}</h2><button class="btn sm primary" onclick="editLine('${esc(cur)}',-1)">+ Exercice</button></div>
       ${(S.program[cur]||[]).map((l,i)=>`<div class="list-item"><div class="grow" onclick="editLine(this.dataset.s,${i})" data-s="${esc(cur)}">
-        <b>${esc(l.ex)}</b><div class="small muted">${l.sets} × ${l.rmin}-${l.rmax} · repos ${mmss(l.rest||S.settings.rest)}${l.reglages?" · "+esc(l.reglages):""}${l.alt?`<br>↔︎ ${esc(l.alt)}`:""}</div></div>
+        <b>${esc(l.ex)}</b> ${INFO}${esc(l.ex)}">i</button><div class="small muted">${l.sets} × ${l.rmin}-${l.rmax} · repos ${mmss(l.rest||S.settings.rest)}${l.reglages?" · "+esc(l.reglages):""}${l.alt?`<br>↔︎ ${esc(l.alt)}`:""}</div></div>
         <button class="btn sm ghost" onclick="moveLine('${esc(cur)}',${i},-1)">↑</button><button class="btn sm ghost" onclick="moveLine('${esc(cur)}',${i},1)">↓</button></div>`).join("")||`<div class="small muted">Aucun exercice.</div>`}
     </div>`;
 }
@@ -882,7 +892,7 @@ function vBiblio(tabs){
   let html=tabs+`<button class="btn primary block" style="margin-bottom:12px" onclick="editEx(-1)">+ Nouvel exercice</button>`+searchBox("Rechercher un exercice ou un muscle","filterList(this.value,'#biblio')")+`<div class="card" id="biblio">`, m=null, gi=0;
   for(const e of list){
     if(e.muscle!==m){ m=e.muscle; gi++; html+=`<div class="small" data-group="${gi}" style="color:var(--accent);margin:10px 0 2px;font-weight:700">${esc(m||"Sans muscle")}</div>`; }
-    html+=`<div class="list-item" data-g="${gi}" data-search="${esc(e.name+" "+(e.muscle||"")+" "+(e.muscle2||"")+" "+(e.portion||""))}" onclick="editEx(${e.i})"><div class="grow"><b>${esc(e.name)}</b><div class="small muted">${esc(e.portion||"")}${e.muscle2?" · + "+esc(e.muscle2):""} · +${fmt(num(e.inc)||S.settings.inc,2)} kg</div></div><span class="muted">›</span></div>`;
+    html+=`<div class="list-item" data-g="${gi}" data-search="${esc(e.name+" "+(e.muscle||"")+" "+(e.muscle2||"")+" "+(e.portion||""))}" onclick="editEx(${e.i})"><div class="grow"><b>${esc(e.name)}</b><div class="small muted">${esc(e.portion||"")}${e.muscle2?" · + "+esc(e.muscle2):""} · +${fmt(num(e.inc)||S.settings.inc,2)} kg</div></div>${INFO}${esc(e.name)}">i</button></div>`;
   }
   $("#view").innerHTML=html+`</div>`;
 }
@@ -1052,7 +1062,40 @@ function vAide(tabs){
    13. FENÊTRE MODALE + DÉMARRAGE
    ===================================================================== */
 function modal(html){ closeModal(); const bg=document.createElement("div"); bg.className="modal-bg"; bg.id="modal"; bg.innerHTML=`<div class="modal">${html}</div>`; bg.addEventListener("click",e=>{ if(e.target===bg) closeModal(); }); document.body.appendChild(bg); }
-function closeModal(){ const m=$("#modal"); if(m) m.remove(); }
+function closeModal(){ stop3D(); const m=$("#modal"); if(m) m.remove(); }
+
+/* =====================================================================
+   14. FICHES EXERCICES + VISUELS 3D (chargés seulement à l'ouverture d'une fiche)
+   ===================================================================== */
+let _load3d=null, _v3d=null;
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+function load3D(){ if(!_load3d) _load3d=(window.THREE?Promise.resolve():loadScript("three.min.js")).then(()=>window.EXO3D?null:loadScript("exo3d.js")); return _load3d; }
+function stop3D(){ if(!_v3d) return; _v3d.stop=true; cancelAnimationFrame(_v3d.raf); try{ _v3d.r.dispose(); _v3d.r.forceContextLoss(); }catch(e){} _v3d=null; }
+function showFiche(name){
+  const f=(window.FICHES||{})[name], inf=exInfo(name);
+  const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  modal(`<div class="fiche"><h2>${esc(name)}</h2>
+    <div class="row wrap" style="margin-bottom:10px">${inf.muscle?`<span class="chip good">${esc(inf.muscle)}</span>`:""}${inf.muscle2?`<span class="chip">+ ${esc(inf.muscle2)}</span>`:""}${inf.portion?`<span class="chip">${esc(inf.portion)}</span>`:""}</div>
+    <div class="v3d" id="v3d"><div class="ph">Chargement du visuel…</div></div>
+    ${f?`<h3>Exécution</h3><ol>${li(f.exec)}</ol><h3>Points clés</h3><ul>${li(f.cles)}</ul><h3>Erreurs fréquentes</h3><ul>${li(f.err)}</ul>${f.src?`<div class="tiny muted">Source des consignes : ${esc(f.src)}</div>`:""}`
+       :`<div class="small muted" style="margin-top:12px">Fiche détaillée à venir pour cet exercice.</div>`}
+    <button class="btn block" style="margin-top:14px" onclick="closeModal()">Fermer</button></div>`);
+  load3D().then(()=>start3D(name)).catch(()=>{ const v=$("#v3d"); if(v) v.innerHTML='<div class="ph">Visuel indisponible hors ligne pour l\'instant (ouvre la fiche une fois avec du réseau).</div>'; });
+}
+function start3D(name){
+  const box=$("#v3d"); if(!box) return; stop3D();
+  const def=window.EXO3D&&EXO3D.EX[name];
+  if(!def){ box.innerHTML='<div class="ph">Visuel 3D à venir pour cet exercice.</div>'; return; }
+  box.innerHTML='<canvas></canvas><div class="ctl"><button class="btn sm" id="v3p" style="background:#fff;color:#222;border-color:#bbb">⏸</button><span class="tiny" style="color:#444">Vue</span><input type="range" id="v3a" min="-180" max="180" value="0" style="flex:1"></div>';
+  const cv=box.querySelector("canvas"), W=cv.clientWidth||340, H=260;
+  const r=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true}); r.setPixelRatio(Math.min(2,window.devicePixelRatio||1)); r.setSize(W,H,false);
+  const cam=new THREE.PerspectiveCamera(32,W/H,0.1,50), sc=EXO3D.makeScene(), ex=def.build(sc);
+  const st={r,stop:false,raf:0,paused:false,t0:performance.now(),ph:0}; _v3d=st;
+  const ang=$("#v3a"); const setC=()=>EXO3D.setCam(cam,def.cam,Number(ang.value)); ang.oninput=()=>{ setC(); if(st.paused){ ex.pose(st.ph); r.render(sc,cam);} }; setC();
+  $("#v3p").onclick=()=>{ st.paused=!st.paused; $("#v3p").textContent=st.paused?"▶︎":"⏸"; if(!st.paused) st.t0=performance.now()-st.ph*0; };
+  const loop=ts=>{ if(st.stop) return; if(!st.paused){ st.ph=(1-Math.cos(ts/2800*2*Math.PI))/2; ex.pose(st.ph); r.render(sc,cam); } st.raf=requestAnimationFrame(loop); };
+  st.raf=requestAnimationFrame(loop);
+}
 
 load(); render();
 document.addEventListener("focusout",()=>{ setTimeout(()=>{ if(!document.activeElement||document.activeElement.tagName!=="INPUT") window.scrollTo(0,0); },60); });
