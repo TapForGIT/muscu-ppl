@@ -25,14 +25,16 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;font-size:16px}
-body{padding-bottom:calc(76px + env(safe-area-inset-bottom));min-height:100vh;min-height:100dvh;overscroll-behavior-y:none}
+/* Mise en page "appli" : seul le contenu (main) défile ; la barre d'onglets ne flotte plus
+   (évite le bug Safari iPhone où la barre fixe se retrouve au milieu de l'écran) */
+html,body{height:100%;overflow:hidden}
+body{display:flex;flex-direction:column;height:100vh;height:100dvh;overscroll-behavior:none}
 html{scroll-behavior:auto;overscroll-behavior-y:none}
-main{min-height:calc(100vh - 140px);min-height:calc(100dvh - 140px)}
-header{position:sticky;top:0;z-index:20;background:rgba(17,24,20,.94);backdrop-filter:blur(8px);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
+header{flex:none;position:relative;z-index:20;background:rgba(17,24,20,.94);backdrop-filter:blur(8px);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
 header h1{margin:0;font-size:20px;font-weight:700}
 header .sub{color:var(--muted);font-size:13px;margin-top:2px}
-main{padding:12px 12px 24px;max-width:720px;margin:0 auto}
-nav{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;background:#0c120f;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:12px max(12px,calc(50% - 348px)) 90px}
+nav{flex:none;position:relative;z-index:30;display:flex;background:#0c120f;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;background:none;border:0;color:var(--muted);padding:9px 0 8px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
 nav button .ic{font-size:21px;line-height:1}
 nav button.on{color:var(--accent)}
@@ -141,6 +143,8 @@ const DEFAULT_EXERCISES = [
  ["Pushdown unilatéral prise supination","Triceps","","Vaste médial",1.25],
  ["Dips machine assis","Triceps","Pectoraux","Vastes latéral et médial",2.5],
  ["Kickback haltère","Triceps","","Vastes latéral et médial",1],
+ ["Dips lestés","Pectoraux","Triceps","Pec bas + triceps (kg = lest)",2.5],
+ ["Dips (poids du corps)","Pectoraux","Triceps","Pec bas + triceps",0],
  ["Tirage vertical prise neutre serrée","Dos","Biceps","Grand dorsal",2.5],
  ["Tirage vertical prise large","Dos","Biceps","Grand dorsal + grand rond",2.5],
  ["Tractions (poids du corps)","Dos","Biceps","Grand dorsal",0],
@@ -152,6 +156,7 @@ const DEFAULT_EXERCISES = [
  ["Oiseau haltères buste appuyé","Deltoïde postérieur","","Deltoïde postérieur",1],
  ["Rowing T poitrine appuyée prise large","Dos","Deltoïde postérieur","Trapèzes moyens, rhomboïdes",2.5],
  ["Rowing haltères buste appuyé","Dos","Deltoïde postérieur","Haut du dos",2],
+ ["Rowing machine assis poitrine appuyée","Dos","Deltoïde postérieur","Milieu du dos, grand dorsal",2.5],
  ["Reverse pec deck","Deltoïde postérieur","","Deltoïde postérieur",2.5],
  ["Shrugs haltères","Trapèzes","","Trapèze supérieur",2],
  ["Curl incliné haltères","Biceps","","Longue portion",1],
@@ -257,7 +262,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -272,6 +277,13 @@ function load(){
     }
     if(S.settings.rest===90) S.settings.rest=120;
     S.restV18=true; save();
+  }
+  // v1.9 : nouveaux exercices dans la bibliothèque
+  if(!S.exV19){
+    ["Dips lestés","Dips (poids du corps)","Rowing machine assis poitrine appuyée"].forEach(n=>{
+      if(!S.exercises.some(e=>e.name===n)){ const d=DEFAULT_EXERCISES.find(x=>x[0]===n); S.exercises.push({name:d[0],muscle:d[1],muscle2:d[2],portion:d[3],inc:d[4]}); }
+    });
+    S.exV19=true; save();
   }
 }
 function save(){
@@ -501,7 +513,7 @@ function go(v, s){
   const changed = v!==view || (s!==undefined && sub[v]!==s);
   if(!changed) return;
   view=v; if(s!==undefined) sub[v]=s; render();
-  window.scrollTo({top:0,left:0,behavior:"instant"});
+  $("#view").scrollTop = 0;
 }
 function renderNav(){ $("#nav").innerHTML = VIEWS.map(([k,ic,l])=>`<button class="${view===k?"on":""}" onclick="go('${k}')"><span class="ic">${ic}</span>${l}</button>`).join(""); }
 function setHeader(t, s=""){ $("#title").textContent=t; $("#subtitle").textContent=s; }
@@ -1024,6 +1036,7 @@ function modal(html){ closeModal(); const bg=document.createElement("div"); bg.c
 function closeModal(){ const m=$("#modal"); if(m) m.remove(); }
 
 load(); render();
+document.addEventListener("focusout",()=>{ setTimeout(()=>{ if(!document.activeElement||document.activeElement.tagName!=="INPUT") window.scrollTo(0,0); },60); });
 if(S.draft) toast("Séance en cours reprise");
 let _lastW = window.innerWidth;
 window.addEventListener("resize",()=>{ if(window.innerWidth===_lastW) return; _lastW=window.innerWidth; clearTimeout(window._rz); window._rz=setTimeout(()=>{ if(!document.activeElement || document.activeElement.tagName!=="INPUT") render(); },250); });

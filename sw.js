@@ -1,6 +1,6 @@
 // Permet à l'appli de fonctionner sans réseau (salle de sport sans 4G).
 // Change le numéro de version quand tu modifies index.html.
-const CACHE = "muscu-ppl-v9";
+const CACHE = "muscu-ppl-v10";
 const FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, {cache: "reload"}))))); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });
