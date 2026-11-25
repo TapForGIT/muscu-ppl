@@ -28,7 +28,10 @@ html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-sys
 /* Mise en page "appli" : seul le contenu (main) défile ; la barre d'onglets ne flotte plus
    (évite le bug Safari iPhone où la barre fixe se retrouve au milieu de l'écran) */
 html,body{height:100%;overflow:hidden}
-body{display:flex;flex-direction:column;height:100vh;height:100dvh;overscroll-behavior:none}
+body{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;overscroll-behavior:none}
+.search{position:relative;margin-bottom:12px}
+.search input{padding-left:36px}
+.search:before{content:"🔍";position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;opacity:.7}
 html{scroll-behavior:auto;overscroll-behavior-y:none}
 header{flex:none;position:relative;z-index:20;background:rgba(17,24,20,.94);backdrop-filter:blur(8px);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
 header h1{margin:0;font-size:20px;font-weight:700}
@@ -262,7 +265,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.9";
+const APP_VERSION = "1.10";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -310,6 +313,22 @@ const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const exInfo = name => S.exercises.find(e=>e.name===name) || {name,muscle:"",muscle2:"",portion:"",inc:null};
 const incFor = name => { const i = num(exInfo(name).inc); return i!==null && i>0 ? i : S.settings.inc; };
 const mmss = s => `${Math.floor(s/60)}:${pad(Math.max(0,Math.round(s%60)))}`;
+const norm = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+// filtre les éléments [data-search] d'un conteneur, sans re-rendu (le clavier reste ouvert)
+function filterList(q, sel){
+  const n=norm(q).trim();
+  document.querySelectorAll(sel+" [data-search]").forEach(el=>{ el.style.display = !n || norm(el.dataset.search).includes(n) ? "" : "none"; });
+  document.querySelectorAll(sel+" [data-group]").forEach(g=>{ const any=[...document.querySelectorAll(sel+` [data-search][data-g="${g.dataset.group}"]`)].some(x=>x.style.display!=="none"); g.style.display=any?"":"none"; });
+}
+function filterSelect(q, id){
+  // iPhone ignore les options masquées : on reconstruit la liste avec les seules correspondances
+  const n=norm(q).trim(), s=document.getElementById(id);
+  if(!s._all) s._all=[...s.options].map(o=>({v:o.value,t:o.textContent}));
+  const cur=s.value, keep=s._all.filter(o=>!o.v||!n||norm(o.t).includes(n));
+  s.innerHTML=keep.map(o=>`<option value="${esc(o.v)}">${esc(o.t)}</option>`).join("");
+  if(keep.some(o=>o.v===cur)) s.value=cur; else { const f=keep.find(o=>o.v); if(f) s.value=f.v; }
+}
+const searchBox = (ph, on) => `<div class="search"><input type="search" placeholder="${ph}" oninput="${on}" autocomplete="off"></div>`;
 const DAYS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
 
 function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2300); }
@@ -633,7 +652,7 @@ function swapAlt(i){
 function removeEntry(i){ if(confirm("Retirer cet exercice de la séance ?")){ S.draft.entries.splice(i,1); save(); render(); } }
 function addExercise(){
   modal(`<h2>Ajouter un exercice</h2>
-    <label>Exercice</label><select id="addEx">${exOptions("")}</select>
+    <label>Exercice</label>${searchBox("Rechercher…","filterSelect(this.value,'addEx')")}<select id="addEx">${exOptions("")}</select>
     <div class="grid3"><div><label>Séries</label><input id="addSets" inputmode="numeric" value="3"></div><div><label>Reps min</label><input id="addMin" inputmode="numeric" value="8"></div><div><label>Reps max</label><input id="addMax" inputmode="numeric" value="12"></div></div>
     <div class="row" style="margin-top:14px"><button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn primary grow" onclick="doAddExercise()">Ajouter</button></div>`);
 }
@@ -750,7 +769,7 @@ function vBilan(tabs){
 function vExos(tabs){
   const exList=[...new Set([...Object.values(S.program).flat().map(l=>l.ex), ...Object.keys(allHist())])];
   const rows=exList.map(ex=>({ex,st:statusOf(ex)})).sort((a,b)=>b.st.code-a.st.code || a.ex.localeCompare(b.ex));
-  $("#view").innerHTML = tabs+`<div class="card">${rows.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}">
+  $("#view").innerHTML = tabs+searchBox("Rechercher un exercice","filterList(this.value,'#exos')")+`<div class="card" id="exos">${rows.map(x=>`<div class="list-item" onclick="showEx(this.dataset.ex)" data-ex="${esc(x.ex)}" data-search="${esc(x.ex+" "+(exInfo(x.ex).muscle||""))}">
       <div class="grow"><div><b>${esc(x.ex)}</b></div><div class="small muted">${x.st.h.length} séance${x.st.h.length>1?"s":""}${x.st.code?` · record ${fmt(x.st.best)}${x.st.since?` · ${x.st.since} sans progrès`:""}`:""}</div><div style="margin-top:4px">${statusChip(x.st)} ${lastProgChip(x.ex)}</div></div>
       <canvas data-spark="${esc(x.ex)}" style="width:80px"></canvas></div>`).join("")}</div>
     <div class="small muted" style="padding:0 4px">Un <b>progrès</b> = ★ record de perf (1RM estimé de ta meilleure série), ou ↑ charge (charge jamais utilisée), ou ↑ reps (plus de reps en moyenne sur tes séries, à charge égale ou plus lourde). 🟢 progrès récent · 🟡 ${S.settings.stable}+ séances sans progrès · 🔴 ${S.settings.stag}+ séances sans progrès.</div>`;
@@ -812,12 +831,12 @@ function exOptions(sel, allowEmpty){
 function editLine(sess, i){
   const l = i>=0 ? S.program[sess][i] : {ex:S.exercises[0].name,sets:3,rmin:8,rmax:12,start:null,rest:S.settings.rest,reglages:"",alt:"",notes:""};
   modal(`<h2>${i>=0?"Modifier":"Ajouter"} · ${esc(sess)}</h2>
-    <label>Exercice</label><select id="fEx">${exOptions(l.ex)}</select>
+    <label>Exercice</label>${searchBox("Rechercher…","filterSelect(this.value,'fEx')")}<select id="fEx">${exOptions(l.ex)}</select>
     <div class="small"><a href="#" style="color:var(--accent)" onclick="closeModal();go('programme','biblio');editEx(-1);return false">+ Créer un nouvel exercice</a></div>
     <div class="grid3"><div><label>Séries</label><input id="fSets" inputmode="numeric" value="${l.sets}"></div><div><label>Reps min</label><input id="fMin" inputmode="numeric" value="${l.rmin}"></div><div><label>Reps max</label><input id="fMax" inputmode="numeric" value="${l.rmax}"></div></div>
     <div class="grid2"><div><label>Repos (secondes)</label><input id="fRest" inputmode="numeric" value="${l.rest??S.settings.rest}"></div><div><label>Charge de départ (kg)</label><input id="fStart" inputmode="decimal" value="${l.start??""}"></div></div>
     <label>Réglages machine</label><input id="fReg" value="${esc(l.reglages)}" placeholder="ex : siège 4, dossier 2">
-    <label>Alternative (si la machine est prise)</label><select id="fAlt">${exOptions(l.alt,true)}</select>
+    <label>Alternative (si la machine est prise)</label>${searchBox("Rechercher…","filterSelect(this.value,'fAlt')")}<select id="fAlt">${exOptions(l.alt,true)}</select>
     <label>Notes</label><input id="fNotes" value="${esc(l.notes)}">
     <div class="row" style="margin-top:16px">${i>=0?`<button class="btn danger" onclick="delLine('${esc(sess)}',${i})">Supprimer</button>`:""}<button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn primary grow" onclick="saveLine('${esc(sess)}',${i})">Enregistrer</button></div>`);
 }
@@ -860,10 +879,10 @@ function delSessionType(i){
 }
 function vBiblio(tabs){
   const list=[...S.exercises].map((e,i)=>({...e,i})).sort((a,b)=>(a.muscle||"").localeCompare(b.muscle||"")||a.name.localeCompare(b.name));
-  let html=tabs+`<button class="btn primary block" style="margin-bottom:12px" onclick="editEx(-1)">+ Nouvel exercice</button><div class="card">`, m=null;
+  let html=tabs+`<button class="btn primary block" style="margin-bottom:12px" onclick="editEx(-1)">+ Nouvel exercice</button>`+searchBox("Rechercher un exercice ou un muscle","filterList(this.value,'#biblio')")+`<div class="card" id="biblio">`, m=null, gi=0;
   for(const e of list){
-    if(e.muscle!==m){ m=e.muscle; html+=`<div class="small" style="color:var(--accent);margin:10px 0 2px;font-weight:700">${esc(m||"Sans muscle")}</div>`; }
-    html+=`<div class="list-item" onclick="editEx(${e.i})"><div class="grow"><b>${esc(e.name)}</b><div class="small muted">${esc(e.portion||"")}${e.muscle2?" · + "+esc(e.muscle2):""} · +${fmt(num(e.inc)||S.settings.inc,2)} kg</div></div><span class="muted">›</span></div>`;
+    if(e.muscle!==m){ m=e.muscle; gi++; html+=`<div class="small" data-group="${gi}" style="color:var(--accent);margin:10px 0 2px;font-weight:700">${esc(m||"Sans muscle")}</div>`; }
+    html+=`<div class="list-item" data-g="${gi}" data-search="${esc(e.name+" "+(e.muscle||"")+" "+(e.muscle2||"")+" "+(e.portion||""))}" onclick="editEx(${e.i})"><div class="grow"><b>${esc(e.name)}</b><div class="small muted">${esc(e.portion||"")}${e.muscle2?" · + "+esc(e.muscle2):""} · +${fmt(num(e.inc)||S.settings.inc,2)} kg</div></div><span class="muted">›</span></div>`;
   }
   $("#view").innerHTML=html+`</div>`;
 }
