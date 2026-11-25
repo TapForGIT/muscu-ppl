@@ -111,6 +111,9 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:6px}
 .v3d .ph{height:180px;display:flex;align-items:center;justify-content:center;color:#666;font-size:14px;text-align:center;padding:0 20px}
 .fiche ol,.fiche ul{margin:4px 0 10px;padding-left:20px;line-height:1.5;font-size:14px}
 .fiche h3{margin:14px 0 2px;font-size:15px}
+.mhead{position:sticky;top:-16px;z-index:5;background:var(--card);margin:-16px -16px 10px;padding:14px 12px 10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.mhead h2{flex:1;margin:0;font-size:18px;line-height:1.25}
+.mclose{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#ffffff14;color:var(--text);font-size:18px;line-height:1;padding:0}
 .legend{display:flex;gap:12px;font-size:12px;color:var(--muted);margin-top:4px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 </style>
@@ -300,7 +303,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.14";
+const APP_VERSION = "1.15";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -1113,7 +1116,7 @@ function startStretch(r){
   const list=S.stretch.routines[r]||[]; if(!list.length){ toast("Routine vide : ajoute des étirements dans Programme › Étirements"); return; }
   Timer.unlock(); const steps=[]; list.forEach(x=>{ (x.sides?["Côté droit","Côté gauche"]:[""]).forEach(side=>steps.push({...x,side})); });
   ST={r,steps,i:-1,left:0,paused:false,iv:null,t0:Date.now()};
-  modal(`<div class="fiche"><div class="row between"><h2 id="stName" style="margin:0"></h2><span class="chip" id="stStep"></span></div>
+  modal(`<div class="fiche"><div class="mhead"><h2 id="stName"></h2><span class="chip" id="stStep"></span><button class="mclose" aria-label="Arrêter" onclick="finishStretch(false)">✕</button></div>
     <div class="small" id="stSide" style="color:var(--warn);margin:4px 0 8px;min-height:18px"></div>
     <div class="v3d" id="v3d"><div class="ph">Chargement…</div></div>
     <div id="stTime" style="text-align:center;font-size:56px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;margin:6px 0"></div>
@@ -1154,8 +1157,8 @@ function finishStretch(done){
 function showFicheStretch(name){
   // consignes par-dessus la routine, sans l'arrêter
   const f=(window.FICHES||{})[name]; if(!f) return; const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
-  const d=document.createElement("div"); d.className="modal-bg"; d.style.zIndex=70; d.innerHTML=`<div class="modal fiche"><h2>${esc(name)}</h2><h3>Exécution</h3><ol>${li(f.exec)}</ol><h3>Points clés</h3><ul>${li(f.cles)}</ul><h3>À éviter</h3><ul>${li(f.err)}</ul><button class="btn block" style="margin-top:12px">Fermer</button></div>`;
-  d.querySelector("button").onclick=()=>d.remove(); d.addEventListener("click",e=>{ if(e.target===d) d.remove(); }); document.body.appendChild(d);
+  const d=document.createElement("div"); d.className="modal-bg"; d.style.zIndex=70; d.innerHTML=`<div class="modal fiche"><div class="mhead"><h2>${esc(name)}</h2><button class="mclose" aria-label="Fermer">✕</button></div><h3>Exécution</h3><ol>${li(f.exec)}</ol><h3>Points clés</h3><ul>${li(f.cles)}</ul><h3>À éviter</h3><ul>${li(f.err)}</ul><button class="btn block" style="margin-top:12px">Fermer</button></div>`;
+  d.querySelectorAll("button").forEach(b=>b.onclick=()=>d.remove()); d.addEventListener("click",e=>{ if(e.target===d) d.remove(); }); document.body.appendChild(d);
 }
 function vStretchProg(tabs){
   const R=S.stretch.routines;
@@ -1198,7 +1201,7 @@ function stop3D(){ if(!_v3d) return; _v3d.stop=true; cancelAnimationFrame(_v3d.r
 function showFiche(name){
   const f=(window.FICHES||{})[name], st=STRETCHES.find(a=>a[0]===name), inf=st?{muscle:st[1],muscle2:"",portion:"Étirement / mobilité"}:exInfo(name);
   const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
-  modal(`<div class="fiche"><h2>${esc(name)}</h2>
+  modal(`<div class="fiche"><div class="mhead"><h2>${esc(name)}</h2><button class="mclose" aria-label="Fermer" onclick="closeModal()">✕</button></div>
     <div class="row wrap" style="margin-bottom:10px">${inf.muscle?`<span class="chip good">${esc(inf.muscle)}</span>`:""}${inf.muscle2?`<span class="chip">+ ${esc(inf.muscle2)}</span>`:""}${inf.portion?`<span class="chip">${esc(inf.portion)}</span>`:""}</div>
     <div class="v3d" id="v3d"><div class="ph">Chargement du visuel…</div></div>
     ${f?`<h3>Exécution</h3><ol>${li(f.exec)}</ol><h3>Points clés</h3><ul>${li(f.cles)}</ul><h3>Erreurs fréquentes</h3><ul>${li(f.err)}</ul>${f.src?`<div class="tiny muted">Source des consignes : ${esc(f.src)}</div>`:""}`
