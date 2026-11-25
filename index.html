@@ -25,19 +25,17 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;font-size:16px}
-/* Mise en page "appli" : seul le contenu (main) défile ; la barre d'onglets ne flotte plus
-   (évite le bug Safari iPhone où la barre fixe se retrouve au milieu de l'écran) */
-html,body{height:100%;overflow:hidden}
-body{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;overscroll-behavior:none}
+/* Mise en page d'origine (v1.5) : la page défile, la barre d'onglets est fixée en bas */
+body{min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
 .search{position:relative;margin-bottom:12px}
 .search input{padding-left:36px}
 .search:before{content:"🔍";position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;opacity:.7}
 html{scroll-behavior:auto;overscroll-behavior-y:none}
-header{flex:none;position:relative;z-index:20;background:rgba(17,24,20,.94);backdrop-filter:blur(8px);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
+header{position:sticky;top:0;z-index:20;background:rgba(17,24,20,.94);backdrop-filter:blur(8px);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
 header h1{margin:0;font-size:20px;font-weight:700}
 header .sub{color:var(--muted);font-size:13px;margin-top:2px}
-main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:12px max(12px,calc(50% - 348px)) 90px}
-nav{flex:none;position:relative;z-index:30;display:flex;background:#0c120f;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+main{padding:12px 12px 24px;max-width:720px;margin:0 auto}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;background:#0c120f;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;background:none;border:0;color:var(--muted);padding:9px 0 8px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
 nav button .ic{font-size:21px;line-height:1}
 nav button.on{color:var(--accent)}
@@ -302,7 +300,7 @@ function defaultState(){
 /* =====================================================================
    2. STOCKAGE
    ===================================================================== */
-const APP_VERSION = "1.12";
+const APP_VERSION = "1.13";
 const KEY = "muscu-ppl-v1";
 let S;
 function load(){
@@ -571,7 +569,7 @@ function go(v, s){
   const changed = v!==view || (s!==undefined && sub[v]!==s);
   if(!changed) return;
   view=v; if(s!==undefined) sub[v]=s; render();
-  $("#view").scrollTop = 0;
+  window.scrollTo(0,0);
 }
 function renderNav(){ $("#nav").innerHTML = VIEWS.map(([k,ic,l])=>`<button class="${view===k?"on":""}" onclick="go('${k}')"><span class="ic">${ic}</span>${l}</button>`).join(""); }
 function setHeader(t, s=""){ $("#title").textContent=t; $("#subtitle").textContent=s; }
@@ -1223,12 +1221,7 @@ function start3D(name){
   st.raf=requestAnimationFrame(loop);
 }
 
-// La hauteur de l'appli suit la hauteur réelle de l'écran (corrige la barre d'onglets mal placée sur certains iPhone)
-function fitApp(){ const a=document.activeElement; if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; document.body.style.bottom="auto"; document.body.style.height=window.innerHeight+"px"; }
-window.addEventListener("resize",fitApp); window.addEventListener("orientationchange",()=>setTimeout(fitApp,350)); window.addEventListener("pageshow",fitApp);
-document.addEventListener("focusout",()=>setTimeout(fitApp,120));
-load(); render(); fitApp();
-document.addEventListener("focusout",()=>{ setTimeout(()=>{ if(!document.activeElement||document.activeElement.tagName!=="INPUT") window.scrollTo(0,0); },60); });
+load(); render();
 if(S.draft) toast("Séance en cours reprise");
 let _lastW = window.innerWidth;
 window.addEventListener("resize",()=>{ if(window.innerWidth===_lastW) return; _lastW=window.innerWidth; clearTimeout(window._rz); window._rz=setTimeout(()=>{ if(!document.activeElement || document.activeElement.tagName!=="INPUT") render(); },250); });
